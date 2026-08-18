@@ -8,10 +8,8 @@ import {
   LockKeyhole,
   Pause,
   Play,
-  RectangleHorizontal,
   RotateCcw,
   ScanLine,
-  Shield,
   Square,
   Sparkles,
   Sun,
@@ -118,9 +116,7 @@ export default function App() {
      : '成品最大宽度'
 const artworkSizeLabel = editor.shape === 'round'
   ? '完整图片直径'
-  : editor.shape === 'square' || editor.shape === 'rectangle'
-    ? '完整图片边长'
-    : '完整图片宽度'
+  : '完整图片边长'
 
  useEffect(() => {
     const canvas = canvasRef.current
@@ -608,13 +604,7 @@ const artworkSizeLabel = editor.shape === 'round'
             <span className="control-label">形状</span>
             <div className="shape-options" aria-label="吧唧形状">
               {BADGE_SHAPES.map((shape) => {
-                const shapeIcons: Record<BadgeShape, typeof Circle> = {
-                  round: Circle,
-                  square: Square,
-                  rectangle: RectangleHorizontal,
-                  shield: Shield,
-                }
-                const ShapeIcon = shapeIcons[shape.id]
+                const ShapeIcon = shape.id === 'round' ? Circle : Square
                 return (
                   <button
                     key={shape.id}

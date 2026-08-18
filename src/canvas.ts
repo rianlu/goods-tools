@@ -73,40 +73,6 @@ function traceShapePath(
   context.closePath()
   return
   }
-
-  if (shape === 'rectangle') {
-    const w = size * 0.42
-    const h = size * 0.56
-    const radius = size * 0.06
-    const left = x - w / 2
-    const right = x + w / 2
-    const top = y - h / 2
-    const bottom = y + h / 2
-    context.moveTo(left + radius, top)
-    context.lineTo(right - radius, top)
-    context.quadraticCurveTo(right, top, right, top + radius)
-    context.lineTo(right, bottom - radius)
-    context.quadraticCurveTo(right, bottom, right - radius, bottom)
-    context.lineTo(left + radius, bottom)
-    context.quadraticCurveTo(left, bottom, left, bottom - radius)
-    context.lineTo(left, top + radius)
-    context.quadraticCurveTo(left, top, left + radius, top)
-    context.closePath()
-    return
-  }
-
-  // shield: five-sided shield outline
-  {
-    const half = size / 2
-    const topW = size * 0.38
-    context.moveTo(x - topW / 2, y - half)
-    context.lineTo(x + topW / 2, y - half)
-    context.lineTo(x + topW / 2, y + half * 0.2)
-    context.quadraticCurveTo(x + topW / 2, y + half * 0.6, x, y + half)
-    context.quadraticCurveTo(x - topW / 2, y + half * 0.6, x - topW / 2, y + half * 0.2)
-    context.closePath()
-    return
-  }
 }
 
 function shapePath(
