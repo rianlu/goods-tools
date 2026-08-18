@@ -27,7 +27,7 @@ test('offers common badge sizes with a visible and wrapped area', () => {
 test('offers circular and square badge shapes', () => {
   assert.deepEqual(
     BADGE_SHAPES.map((shape) => shape.id),
-    ['round', 'square'],
+    ['round', 'square', 'rectangle', 'shield'],
   )
 })
 

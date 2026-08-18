@@ -8,8 +8,10 @@ import {
   LockKeyhole,
   Pause,
   Play,
+  RectangleHorizontal,
   RotateCcw,
   ScanLine,
+  Shield,
   Square,
   Sparkles,
   Sun,
@@ -109,16 +111,18 @@ export default function App() {
   )?.id
   const activeShape = BADGE_SHAPES.find((shape) => shape.id === editor.shape)
     ?? BADGE_SHAPES[0]
-  const visibleSizeLabel = editor.shape === 'round'
-    ? '成品可见直径'
-    : editor.shape === 'square'
-      ? '成品可见边长'
-      : '成品最大宽度'
-  const artworkSizeLabel = editor.shape === 'round'
-    ? '完整图片直径'
-    : '完整图片边长'
+ const visibleSizeLabel = editor.shape === 'round'
+   ? '成品可见直径'
+   : editor.shape === 'square'
+     ? '成品可见边长'
+     : '成品最大宽度'
+const artworkSizeLabel = editor.shape === 'round'
+  ? '完整图片直径'
+  : editor.shape === 'square' || editor.shape === 'rectangle'
+    ? '完整图片边长'
+    : '完整图片宽度'
 
-  useEffect(() => {
+ useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
@@ -304,9 +308,23 @@ export default function App() {
     setEditor((current) => ({ ...current, filmCraft }))
   }
 
+ const baseCraftLabelMap: Record<BaseCraft, string | null> = {
+    'none': null,
+    'silver-glitter': '银闪',
+    'gold-glitter': '金闪',
+    'pearl': '珠光',
+  }
+  const filmCraftLabelMap: Record<FilmCraft, string | null> = {
+    'none': null,
+    'glossy': '亮膜',
+    'matte': '哑光',
+    'rainbow': '素面镭射',
+    'cracked-ice': '碎冰镭射',
+    'lattice': '方格镭射',
+  }
   const craftLabel = [
-    editor.baseCraft === 'silver-glitter' ? '银闪底' : null,
-    editor.filmCraft === 'glossy' ? '亮膜' : editor.filmCraft === 'rainbow' ? '素面镭射' : null,
+    baseCraftLabelMap[editor.baseCraft],
+    filmCraftLabelMap[editor.filmCraft],
   ].filter(Boolean).join('+') || '无工艺'
 
   async function exportPreview() {
@@ -530,62 +548,53 @@ export default function App() {
                <h2>工艺</h2>
              </div>
            </div>
-           <span className="control-label">闪底</span>
-           <div className="craft-options">
-             <button
-               type="button"
-               className={editor.baseCraft === 'none' ? 'is-selected' : ''}
-               aria-pressed={editor.baseCraft === 'none'}
-               onClick={() => changeBaseCraft('none')}
-             >
-               <span className="craft-swatch plain"><Circle size={18} /></span>
-               无闪底
-             </button>
-             <button
-               type="button"
-               className={editor.baseCraft === 'silver-glitter' ? 'is-selected' : ''}
-               aria-pressed={editor.baseCraft === 'silver-glitter'}
-               onClick={() => changeBaseCraft('silver-glitter')}
-             >
-               <span className="craft-swatch glitter"><Sparkles size={18} /></span>
-               银闪
-             </button>
-           </div>
+          <span className="control-label">闪底</span>
+          <div className="craft-options craft-grid">
+            {([
+              { id: 'none' as const, label: '无闪底', icon: Circle, swatch: 'plain' },
+              { id: 'silver-glitter' as const, label: '银闪', icon: Sparkles, swatch: 'glitter silver' },
+              { id: 'gold-glitter' as const, label: '金闪', icon: Sparkles, swatch: 'glitter gold' },
+              { id: 'pearl' as const, label: '珠光', icon: Gem, swatch: 'pearl' },
+            ]).map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className={editor.baseCraft === c.id ? 'is-selected' : ''}
+                aria-pressed={editor.baseCraft === c.id}
+                onClick={() => changeBaseCraft(c.id)}
+              >
+                <span className={`craft-swatch ${c.swatch}`}><c.icon size={18} /></span>
+                {c.label}
+              </button>
+            ))}
+          </div>
 
-           <span className="control-label craft-sub-label">覆膜</span>
-           <div className="craft-options">
-             <button
-               type="button"
-               className={editor.filmCraft === 'none' ? 'is-selected' : ''}
-               aria-pressed={editor.filmCraft === 'none'}
-               onClick={() => changeFilmCraft('none')}
-             >
-               <span className="craft-swatch plain"><Circle size={18} /></span>
-               无膜
-             </button>
-             <button
-               type="button"
-               className={editor.filmCraft === 'glossy' ? 'is-selected' : ''}
-               aria-pressed={editor.filmCraft === 'glossy'}
-               onClick={() => changeFilmCraft('glossy')}
-             >
-               <span className="craft-swatch glossy"><Sun size={18} /></span>
-               亮膜
-             </button>
-             <button
-               type="button"
-               className={editor.filmCraft === 'rainbow' ? 'is-selected' : ''}
-               aria-pressed={editor.filmCraft === 'rainbow'}
-               onClick={() => changeFilmCraft('rainbow')}
-             >
-               <span className="craft-swatch holographic"><Gem size={18} /></span>
-               素面镭射
-             </button>
-           </div>
-           <p className="craft-hint">
-             银闪 + 素面镭射 = 双闪. 底层闪粉提供内部闪烁, 表面膜层提供光泽或彩虹反光.
-           </p>
-         </section>
+          <span className="control-label craft-sub-label">覆膜</span>
+          <div className="craft-options craft-grid">
+            {([
+              { id: 'none' as const, label: '无膜', icon: Circle, swatch: 'plain' },
+              { id: 'glossy' as const, label: '亮膜', icon: Sun, swatch: 'glossy' },
+              { id: 'matte' as const, label: '哑光', icon: Sun, swatch: 'matte' },
+              { id: 'rainbow' as const, label: '素面镭射', icon: Gem, swatch: 'holographic' },
+              { id: 'cracked-ice' as const, label: '碎冰镭射', icon: Gem, swatch: 'cracked-ice' },
+              { id: 'lattice' as const, label: '方格镭射', icon: Gem, swatch: 'lattice' },
+            ]).map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className={editor.filmCraft === c.id ? 'is-selected' : ''}
+                aria-pressed={editor.filmCraft === c.id}
+                onClick={() => changeFilmCraft(c.id)}
+              >
+                <span className={`craft-swatch ${c.swatch}`}><c.icon size={18} /></span>
+                {c.label}
+              </button>
+            ))}
+          </div>
+          <p className="craft-hint">
+            银闪 + 素面镭射 = 双闪. 底层闪粉提供内部闪烁, 表面膜层提供光泽或彩虹反光.
+          </p>
+        </section>
 
           <section className="panel-section">
             <div className="section-heading">
@@ -599,9 +608,13 @@ export default function App() {
             <span className="control-label">形状</span>
             <div className="shape-options" aria-label="吧唧形状">
               {BADGE_SHAPES.map((shape) => {
-                const ShapeIcon = shape.id === 'round'
-                  ? Circle
-                  : Square
+                const shapeIcons: Record<BadgeShape, typeof Circle> = {
+                  round: Circle,
+                  square: Square,
+                  rectangle: RectangleHorizontal,
+                  shield: Shield,
+                }
+                const ShapeIcon = shapeIcons[shape.id]
                 return (
                   <button
                     key={shape.id}

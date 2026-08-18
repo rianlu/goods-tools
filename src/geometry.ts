@@ -1,10 +1,12 @@
 export const OUTPUT_DPI = 300
 
-export type BadgeShape = 'round' | 'square'
+export type BadgeShape = 'round' | 'square' | 'rectangle' | 'shield'
 
 export const BADGE_SHAPES: Array<{ id: BadgeShape; label: string }> = [
   { id: 'round', label: '圆形' },
   { id: 'square', label: '方形' },
+  { id: 'rectangle', label: '长方形' },
+  { id: 'shield', label: '盾形' },
 ]
 
 export type BadgePreset = {

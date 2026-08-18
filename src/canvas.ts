@@ -10,8 +10,8 @@ export const PREVIEW_EXPORT_SIZE = 1080
 export const MAX_FILE_BYTES = 15 * 1024 * 1024
 export const MAX_WORKING_EDGE = 2048
 
-export type BaseCraft = 'none' | 'silver-glitter'
-export type FilmCraft = 'none' | 'glossy' | 'rainbow'
+export type BaseCraft = 'none' | 'silver-glitter' | 'gold-glitter' | 'pearl'
+export type FilmCraft = 'none' | 'glossy' | 'matte' | 'rainbow' | 'cracked-ice' | 'lattice'
 
 export type Craft = BaseCraft | FilmCraft
 export type ViewMode = 'preview' | 'print'
@@ -53,9 +53,10 @@ function traceShapePath(
     return
   }
 
-  // square with 10% corner radius
-  const half = size / 2
-  const radius = size * 0.1
+  if (shape === 'square') {
+    // square with 10% corner radius
+    const half = size / 2
+    const radius = size * 0.1
   const left = x - half
   const right = x + half
   const top = y - half
@@ -70,6 +71,42 @@ function traceShapePath(
   context.lineTo(left, top + radius)
   context.quadraticCurveTo(left, top, left + radius, top)
   context.closePath()
+  return
+  }
+
+  if (shape === 'rectangle') {
+    const w = size * 0.42
+    const h = size * 0.56
+    const radius = size * 0.06
+    const left = x - w / 2
+    const right = x + w / 2
+    const top = y - h / 2
+    const bottom = y + h / 2
+    context.moveTo(left + radius, top)
+    context.lineTo(right - radius, top)
+    context.quadraticCurveTo(right, top, right, top + radius)
+    context.lineTo(right, bottom - radius)
+    context.quadraticCurveTo(right, bottom, right - radius, bottom)
+    context.lineTo(left + radius, bottom)
+    context.quadraticCurveTo(left, bottom, left, bottom - radius)
+    context.lineTo(left, top + radius)
+    context.quadraticCurveTo(left, top, left + radius, top)
+    context.closePath()
+    return
+  }
+
+  // shield: five-sided shield outline
+  {
+    const half = size / 2
+    const topW = size * 0.38
+    context.moveTo(x - topW / 2, y - half)
+    context.lineTo(x + topW / 2, y - half)
+    context.lineTo(x + topW / 2, y + half * 0.2)
+    context.quadraticCurveTo(x + topW / 2, y + half * 0.6, x, y + half)
+    context.quadraticCurveTo(x - topW / 2, y + half * 0.6, x - topW / 2, y + half * 0.2)
+    context.closePath()
+    return
+  }
 }
 
 function shapePath(
@@ -115,7 +152,53 @@ function drawMappedArtwork(
   context.drawImage(artwork.source, x, y, width, height)
 }
 
-function drawSilverGlitter(
+function drawGlitterBase(
+  context: CanvasRenderingContext2D,
+  shape: BadgeShape,
+  centerX: number,
+  centerY: number,
+  faceSize: number,
+  tilt: number,
+  color: [number, number, number],
+) {
+  context.save()
+  shapePath(context, shape, centerX, centerY, faceSize)
+  context.clip()
+  context.translate(centerX, centerY)
+
+  // 闪底: sparkle particles with halos, bright enough to be visible on artwork.
+  context.globalCompositeOperation = 'screen'
+  const count = 500
+  let seed = 12345
+  const rand = () => {
+    seed = (seed * 16807) % 2147483647
+    return seed / 2147483647
+  }
+  for (let i = 0; i < count; i += 1) {
+    const rx = (rand() - 0.5) * faceSize * 1.1
+    const ry = (rand() - 0.5) * faceSize * 1.1
+    const dist = Math.hypot(rx, ry)
+    if (dist > faceSize * 0.48) continue
+    const phase = rand() * Math.PI * 2
+    const shimmer = 0.4 + 0.6 * Math.abs(Math.sin(tilt * 2 + phase))
+    const alpha = 0.35 + shimmer * 0.5
+    const psize = 1.0 + rand() * 2.5
+    context.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha})`
+    context.beginPath()
+    context.arc(rx, ry, psize, 0, Math.PI * 2)
+    context.fill()
+    if (rand() > 0.6) {
+      context.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha * 0.3})`
+      context.beginPath()
+      context.arc(rx, ry, psize * 2.5, 0, Math.PI * 2)
+      context.fill()
+    }
+  }
+
+ context.restore()
+}
+
+function drawPearlBase(
   context: CanvasRenderingContext2D,
   shape: BadgeShape,
   centerX: number,
@@ -128,33 +211,37 @@ function drawSilverGlitter(
   context.clip()
   context.translate(centerX, centerY)
 
-  // 银闪底: fine silver sparkle particles embedded in the base layer.
-  // Scattered bright dots with varying size, shimmer with tilt.
-  context.globalCompositeOperation = 'screen'
-  const count = 280
-  // Deterministic pseudo-random for stable particle positions
-  let seed = 12345
-  const rand = () => {
-    seed = (seed * 16807) % 2147483647
-    return seed / 2147483647
-  }
-  for (let i = 0; i < count; i += 1) {
-    const rx = (rand() - 0.5) * faceSize * 1.1
-    const ry = (rand() - 0.5) * faceSize * 1.1
-    // Skip points outside the badge (rough check for both shapes)
-    const dist = Math.hypot(rx, ry)
-    if (dist > faceSize * 0.48) continue
-    const size = 0.6 + rand() * 1.8
-    const phase = rand() * Math.PI * 2
-    const shimmer = 0.3 + 0.7 * Math.abs(Math.sin(tilt * 2 + phase))
-    const alpha = 0.15 + shimmer * 0.5
-    context.fillStyle = `rgba(220, 228, 240, ${alpha})`
-    context.beginPath()
-    context.arc(rx, ry, size, 0, Math.PI * 2)
-    context.fill()
-  }
+ // 珠光底: soft iridescent sheen with subtle wave pattern.
+ // Not particles — a smooth flowing gradient that shifts with tilt.
+  context.globalCompositeOperation = 'overlay'
+  context.globalAlpha = 0.8
 
-  context.restore()
+ // Layer 1: warm-cool wave gradient moving with tilt.
+ const wave = context.createLinearGradient(
+   -faceSize * 0.3 + tilt * faceSize * 0.25,
+   -faceSize * 0.3,
+   faceSize * 0.3 + tilt * faceSize * 0.25,
+   faceSize * 0.3,
+ )
+  wave.addColorStop(0, 'rgba(255, 220, 200, 0.7)')
+  wave.addColorStop(0.3, 'rgba(200, 220, 255, 0.7)')
+  wave.addColorStop(0.6, 'rgba(220, 200, 255, 0.7)')
+  wave.addColorStop(1, 'rgba(255, 230, 200, 0.7)')
+ context.fillStyle = wave
+ context.fillRect(-faceSize, -faceSize, faceSize * 2, faceSize * 2)
+
+ // Layer 2: bright luster band — narrow bright zone that moves with tilt.
+ context.globalCompositeOperation = 'screen'
+  context.globalAlpha = 0.5
+ const bandX = tilt * faceSize * 0.35
+ const band = context.createRadialGradient(bandX, -faceSize * 0.1, 0, bandX, -faceSize * 0.1, faceSize * 0.4)
+  band.addColorStop(0, 'rgba(255, 250, 245, 0.6)')
+  band.addColorStop(0.4, 'rgba(255, 250, 245, 0.2)')
+ band.addColorStop(1, 'rgba(255, 250, 245, 0)')
+ context.fillStyle = band
+ context.fillRect(-faceSize, -faceSize, faceSize * 2, faceSize * 2)
+
+ context.restore()
 }
 
 function drawGlossyFilm(
@@ -170,24 +257,69 @@ function drawGlossyFilm(
   context.clip()
   context.translate(centerX, centerY)
 
-  // 亮膜: smooth high-gloss reflection, single bright highlight that moves with tilt.
-  context.globalCompositeOperation = 'screen'
-  const hx = tilt * faceSize * 0.28
-  const hy = -faceSize * 0.15 + Math.abs(tilt) * faceSize * 0.05
-  const highlight = context.createRadialGradient(hx, hy, 0, hx, hy, faceSize * 0.55)
-  highlight.addColorStop(0, 'rgba(255, 255, 255, 0.38)')
-  highlight.addColorStop(0.25, 'rgba(255, 255, 255, 0.15)')
-  highlight.addColorStop(0.6, 'rgba(255, 255, 255, 0.04)')
-  highlight.addColorStop(1, 'rgba(255, 255, 255, 0)')
-  context.fillStyle = highlight
-  context.fillRect(-faceSize, -faceSize, faceSize * 2, faceSize * 2)
+ // 亮膜: smooth high-gloss reflection, single bright highlight that moves with tilt.
+ context.globalCompositeOperation = 'screen'
+ const hx = tilt * faceSize * 0.28
+ const hy = -faceSize * 0.15 + Math.abs(tilt) * faceSize * 0.05
+ const highlight = context.createRadialGradient(hx, hy, 0, hx, hy, faceSize * 0.55)
+  highlight.addColorStop(0, 'rgba(255, 255, 255, 0.5)')
+  highlight.addColorStop(0.2, 'rgba(255, 255, 255, 0.25)')
+  highlight.addColorStop(0.5, 'rgba(255, 255, 255, 0.08)')
+ highlight.addColorStop(1, 'rgba(255, 255, 255, 0)')
+ context.fillStyle = highlight
+ context.fillRect(-faceSize, -faceSize, faceSize * 2, faceSize * 2)
 
-  // Subtle full-face brightness lift
-  context.globalCompositeOperation = 'soft-light'
-  context.fillStyle = 'rgba(255, 255, 255, 0.08)'
-  context.fillRect(-faceSize, -faceSize, faceSize * 2, faceSize * 2)
+ // Subtle full-face brightness lift
+ context.globalCompositeOperation = 'soft-light'
+  context.fillStyle = 'rgba(255, 255, 255, 0.12)'
+ context.fillRect(-faceSize, -faceSize, faceSize * 2, faceSize * 2)
 
   context.restore()
+}
+
+function drawMatteFilm(
+  context: CanvasRenderingContext2D,
+  shape: BadgeShape,
+  centerX: number,
+  centerY: number,
+  faceSize: number,
+  tilt: number,
+) {
+  context.save()
+  shapePath(context, shape, centerX, centerY, faceSize)
+  context.clip()
+  context.translate(centerX, centerY)
+
+ // 哑光膜: reduces contrast and saturation, adds a soft diffuse glow with no specular.
+ // No bright highlight — matte surface scatters light evenly.
+  // Layer 1: desaturate by overlaying a neutral gray veil.
+  context.globalCompositeOperation = 'saturation'
+  context.fillStyle = 'rgba(160, 160, 165, 0.35)'
+  context.fillRect(-faceSize, -faceSize, faceSize * 2, faceSize * 2)
+
+  // Layer 2: soft-light to reduce contrast.
+  context.globalCompositeOperation = 'soft-light'
+  context.fillStyle = 'rgba(190, 190, 195, 0.3)'
+ context.fillRect(-faceSize, -faceSize, faceSize * 2, faceSize * 2)
+
+ // Very subtle diffuse brightening that shifts slightly with tilt.
+ context.globalCompositeOperation = 'overlay'
+  context.globalAlpha = 0.35
+ const diffuse = context.createRadialGradient(
+   tilt * faceSize * 0.15,
+   -faceSize * 0.05,
+   0,
+   tilt * faceSize * 0.15,
+   -faceSize * 0.05,
+   faceSize * 0.6,
+ )
+  diffuse.addColorStop(0, 'rgba(220, 220, 225, 0.35)')
+  diffuse.addColorStop(0.5, 'rgba(220, 220, 225, 0.12)')
+ diffuse.addColorStop(1, 'rgba(230, 230, 235, 0)')
+ context.fillStyle = diffuse
+ context.fillRect(-faceSize, -faceSize, faceSize * 2, faceSize * 2)
+
+ context.restore()
 }
 
 function drawHolographicFilm(
@@ -251,6 +383,137 @@ function drawHolographicFilm(
   context.restore()
 }
 
+function drawCrackedIceFilm(
+  context: CanvasRenderingContext2D,
+  shape: BadgeShape,
+  centerX: number,
+  centerY: number,
+  faceSize: number,
+  tilt: number,
+) {
+  context.save()
+  shapePath(context, shape, centerX, centerY, faceSize)
+  context.clip()
+  context.translate(centerX, centerY)
+
+  // 碎冰镭射: irregular cracked-ice rainbow pattern.
+  // Each "ice shard" is a polygon with its own hue, creating fragmented rainbow.
+  context.globalCompositeOperation = 'screen'
+  let seed = 54321
+  const rand = () => {
+    seed = (seed * 16807) % 2147483647
+    return seed / 2147483647
+  }
+
+  // Generate Voronoi-like cell centers, then draw each as a colored polygon.
+  const cellCount = 32
+  const cells: Array<{ x: number; y: number; hue: number }> = []
+  for (let i = 0; i < cellCount; i += 1) {
+    const rx = (rand() - 0.5) * faceSize * 1.0
+    const ry = (rand() - 0.5) * faceSize * 1.0
+    if (Math.hypot(rx, ry) > faceSize * 0.48) continue
+    const hue = (rand() * 360 + tilt * 60) % 360
+    cells.push({ x: rx, y: ry, hue })
+  }
+
+  // For each pixel block, find nearest cell center and use its hue.
+  const blockSize = 6
+  const half = faceSize * 0.48
+  for (let py = -half; py <= half; py += blockSize) {
+    for (let px = -half; px <= half; px += blockSize) {
+      if (Math.hypot(px, py) > half) continue
+      let nearest = cells[0]
+      let minDist = Infinity
+      for (const cell of cells) {
+        const d = Math.hypot(px - cell.x, py - cell.y)
+        if (d < minDist) {
+          minDist = d
+          nearest = cell
+        }
+      }
+      if (!nearest) continue
+      context.fillStyle = `hsla(${nearest.hue}, 90%, 55%, 0.2)`
+      context.fillRect(px, py, blockSize, blockSize)
+    }
+  }
+
+  // Moving highlight on top.
+  context.globalCompositeOperation = 'screen'
+  const hx = tilt * faceSize * 0.3
+  const hy = -faceSize * 0.1
+  const highlight = context.createRadialGradient(hx, hy, 0, hx, hy, faceSize * 0.4)
+  highlight.addColorStop(0, 'rgba(255, 255, 255, 0.3)')
+  highlight.addColorStop(0.3, 'rgba(255, 255, 255, 0.12)')
+  highlight.addColorStop(1, 'rgba(255, 255, 255, 0)')
+  context.fillStyle = highlight
+  context.fillRect(-faceSize, -faceSize, faceSize * 2, faceSize * 2)
+
+  context.restore()
+}
+
+function drawLatticeFilm(
+  context: CanvasRenderingContext2D,
+  shape: BadgeShape,
+  centerX: number,
+  centerY: number,
+  faceSize: number,
+  tilt: number,
+) {
+  context.save()
+  shapePath(context, shape, centerX, centerY, faceSize)
+  context.clip()
+  context.translate(centerX, centerY)
+
+  // 方格镭射: regular grid of rainbow cells, like a checkered holographic pattern.
+  // Each cell shifts hue based on position and tilt.
+  context.globalCompositeOperation = 'screen'
+  const gridSize = faceSize * 0.08
+  const half = faceSize * 0.5
+  const cols = Math.ceil(faceSize / gridSize) + 2
+  const startX = -Math.ceil(cols / 2) * gridSize
+
+  for (let row = 0; row < cols; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      const px = startX + col * gridSize
+      const py = startX + row * gridSize
+      // Skip cells entirely outside the badge
+      if (Math.hypot(px + gridSize / 2, py + gridSize / 2) > half) continue
+      const cellHue = ((col * 35 + row * 50 + tilt * 80) % 360 + 360) % 360
+      context.fillStyle = `hsla(${cellHue}, 90%, 55%, 0.18)`
+      context.fillRect(px, py, gridSize, gridSize)
+    }
+  }
+
+  // Grid line overlay for crisp lattice edges.
+  context.globalCompositeOperation = 'overlay'
+  context.globalAlpha = 0.15
+  context.strokeStyle = 'rgba(255, 255, 255, 0.5)'
+  context.lineWidth = 1
+  for (let i = 0; i <= cols; i += 1) {
+    const pos = startX + i * gridSize
+    context.beginPath()
+    context.moveTo(pos, -half)
+    context.lineTo(pos, half)
+    context.moveTo(-half, pos)
+    context.lineTo(half, pos)
+    context.stroke()
+  }
+
+  // Moving highlight.
+  context.globalCompositeOperation = 'screen'
+  context.globalAlpha = 1
+  const hx = tilt * faceSize * 0.3
+  const hy = -faceSize * 0.1
+  const highlight = context.createRadialGradient(hx, hy, 0, hx, hy, faceSize * 0.4)
+  highlight.addColorStop(0, 'rgba(255, 255, 255, 0.3)')
+  highlight.addColorStop(0.3, 'rgba(255, 255, 255, 0.12)')
+  highlight.addColorStop(1, 'rgba(255, 255, 255, 0)')
+  context.fillStyle = highlight
+  context.fillRect(-faceSize, -faceSize, faceSize * 2, faceSize * 2)
+
+  context.restore()
+}
+
 function drawEdgeShadow(
   context: CanvasRenderingContext2D,
   shape: BadgeShape,
@@ -285,9 +548,8 @@ function drawEdgeShadow(
       faceSize,
     )
   } else {
-    // For square: use inset box-shadow approach — draw shadow from edges inward.
+    // For square, rectangle, shield: four-edge linear gradient shadow.
     const half = faceSize / 2
-    const blur = faceSize * 0.08
     const max = faceSize * 0.12
 
     // Use four linear gradients from each edge, composited together.
@@ -355,13 +617,23 @@ function drawBadgeFace(
   drawMappedArtwork(context, state, centerX, centerY, artworkSize, canvasSize)
 
   if (state.baseCraft === 'silver-glitter') {
-    drawSilverGlitter(context, state.shape, centerX, centerY, faceSize, tilt)
+    drawGlitterBase(context, state.shape, centerX, centerY, faceSize, tilt, [220, 228, 240])
+  } else if (state.baseCraft === 'gold-glitter') {
+    drawGlitterBase(context, state.shape, centerX, centerY, faceSize, tilt, [255, 200, 80])
+  } else if (state.baseCraft === 'pearl') {
+    drawPearlBase(context, state.shape, centerX, centerY, faceSize, tilt)
   }
 
   if (state.filmCraft === 'glossy') {
     drawGlossyFilm(context, state.shape, centerX, centerY, faceSize, tilt)
+  } else if (state.filmCraft === 'matte') {
+    drawMatteFilm(context, state.shape, centerX, centerY, faceSize, tilt)
   } else if (state.filmCraft === 'rainbow') {
     drawHolographicFilm(context, state.shape, centerX, centerY, faceSize, tilt)
+  } else if (state.filmCraft === 'cracked-ice') {
+    drawCrackedIceFilm(context, state.shape, centerX, centerY, faceSize, tilt)
+  } else if (state.filmCraft === 'lattice') {
+    drawLatticeFilm(context, state.shape, centerX, centerY, faceSize, tilt)
   }
 
   drawEdgeShadow(context, state.shape, centerX, centerY, faceSize)
