@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   BADGE_PRESETS,
+  BADGE_SHAPES,
   DEFAULT_BADGE_PRESET,
   constrainTransform,
   coverGeometry,
@@ -20,6 +21,13 @@ test('offers common badge sizes with a visible and wrapped area', () => {
       printDiameterMm,
     ]),
     [[25, 31], [32, 38], [44, 52], [58, 70], [75, 87]],
+  )
+})
+
+test('offers circular and square badge shapes', () => {
+  assert.deepEqual(
+    BADGE_SHAPES.map((shape) => shape.id),
+    ['round', 'square'],
   )
 })
 

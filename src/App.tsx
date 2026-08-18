@@ -3,13 +3,16 @@ import {
   Download,
   Eye,
   FileOutput,
+  Gem,
   ImagePlus,
   LockKeyhole,
   Pause,
   Play,
   RotateCcw,
   ScanLine,
+  Square,
   Sparkles,
+  Sun,
   Trash2,
 } from 'lucide-react'
 import {
@@ -31,17 +34,21 @@ import {
   loadArtwork,
   renderWorkspace,
   validateArtworkFile,
-  type Craft,
+  type BaseCraft,
+  type FilmCraft,
   type RenderState,
   type ViewMode,
 } from './canvas.ts'
 import {
   BADGE_PRESETS,
+  BADGE_SHAPES,
   DEFAULT_TRANSFORM,
   DEFAULT_BADGE_PRESET,
   OUTPUT_DPI,
   constrainTransform,
   mmToPixels,
+  previewDiameterRatio,
+  type BadgeShape,
   type Transform,
 } from './geometry.ts'
 
@@ -77,16 +84,18 @@ export default function App() {
   })
   const reducedMotion = useReducedMotion()
   const demoArtwork = useMemo(() => createDemoArtwork(), [])
-  const [editor, setEditor] = useState<RenderState>(() => ({
-    artwork: demoArtwork,
-    transform: DEFAULT_TRANSFORM,
-    craft: 'holographic',
-    finishedDiameterMm: DEFAULT_BADGE_PRESET.finishedDiameterMm,
-    printDiameterMm: DEFAULT_BADGE_PRESET.printDiameterMm,
-    safeDiameterMm: DEFAULT_BADGE_PRESET.safeDiameterMm,
-  }))
+ const [editor, setEditor] = useState<RenderState>(() => ({
+   artwork: demoArtwork,
+   transform: DEFAULT_TRANSFORM,
+   baseCraft: 'none',
+   filmCraft: 'rainbow',
+   shape: 'round',
+   finishedDiameterMm: DEFAULT_BADGE_PRESET.finishedDiameterMm,
+   printDiameterMm: DEFAULT_BADGE_PRESET.printDiameterMm,
+   safeDiameterMm: DEFAULT_BADGE_PRESET.safeDiameterMm,
+ }))
   const [view, setView] = useState<ViewMode>('preview')
-  const [paused, setPaused] = useState(false)
+  const [animate, setAnimate] = useState(false)
   const [draggingFile, setDraggingFile] = useState(false)
   const [loading, setLoading] = useState(false)
   const [confirmPrint, setConfirmPrint] = useState(false)
@@ -98,28 +107,35 @@ export default function App() {
   const activePresetId = BADGE_PRESETS.find(
     (preset) => preset.finishedDiameterMm === editor.finishedDiameterMm,
   )?.id
+  const activeShape = BADGE_SHAPES.find((shape) => shape.id === editor.shape)
+    ?? BADGE_SHAPES[0]
+  const visibleSizeLabel = editor.shape === 'round'
+    ? '成品可见直径'
+    : editor.shape === 'square'
+      ? '成品可见边长'
+      : '成品最大宽度'
+  const artworkSizeLabel = editor.shape === 'round'
+    ? '完整图片直径'
+    : '完整图片边长'
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
     let animationFrame = 0
-    const shouldAnimate =
-      editor.craft === 'holographic' && !paused && !reducedMotion
+    const shouldAnimate = animate && !reducedMotion
 
     const draw = (time: number) => {
-      renderWorkspace(
-        canvas,
-        editor,
-        view,
-        shouldAnimate ? (time % 6200) / 6200 : 0.56,
-      )
+      // Circular wobble: like swirling a glass, the badge tilts in a circle.
+      const phase = shouldAnimate ? (time % 3600) / 3600 * Math.PI * 2 : 0
+      const t = shouldAnimate ? Math.sin(phase) : 0
+      renderWorkspace(canvas, editor, view, t)
       if (shouldAnimate) animationFrame = requestAnimationFrame(draw)
     }
 
     draw(performance.now())
     return () => cancelAnimationFrame(animationFrame)
-  }, [editor, paused, reducedMotion, view])
+  }, [editor, animate, reducedMotion, view])
 
   function updateTransform(change: (current: Transform) => Transform) {
     setEditor((current) => ({
@@ -204,12 +220,9 @@ export default function App() {
     const logicalScale = canvas.width / canvas.clientWidth
     const logicalDx = (point.x - gesture.current.lastX) * logicalScale
     const logicalDy = (point.y - gesture.current.lastY) * logicalScale
-    const printDiameter =
-      view === 'print'
-        ? DISPLAY_SIZE * 0.72
-        : DISPLAY_SIZE *
-          0.62 *
-          (editor.printDiameterMm / editor.finishedDiameterMm)
+    // Normalize drag offset to canvas size so image position stays
+    // consistent when switching between preview and print views.
+    const printDiameter = DISPLAY_SIZE
 
     gesture.current.lastX = point.x
     gesture.current.lastY = point.y
@@ -283,15 +296,24 @@ export default function App() {
     setIsError(false)
   }
 
-  function changeCraft(craft: Craft) {
-    setEditor((current) => ({ ...current, craft }))
+  function changeBaseCraft(baseCraft: BaseCraft) {
+    setEditor((current) => ({ ...current, baseCraft }))
   }
+
+  function changeFilmCraft(filmCraft: FilmCraft) {
+    setEditor((current) => ({ ...current, filmCraft }))
+  }
+
+  const craftLabel = [
+    editor.baseCraft === 'silver-glitter' ? '银闪底' : null,
+    editor.filmCraft === 'glossy' ? '亮膜' : editor.filmCraft === 'rainbow' ? '素面镭射' : null,
+  ].filter(Boolean).join('+') || '无工艺'
 
   async function exportPreview() {
     try {
       await downloadCanvas(
         createPreviewExport(editor),
-        `guzitools-badge-${editor.finishedDiameterMm}mm-preview.png`,
+        `guzitools-badge-${editor.shape}-${editor.finishedDiameterMm}mm-${craftLabel}-preview.png`,
       )
       setMessage('1080x1080 效果图已导出.')
       setIsError(false)
@@ -304,7 +326,7 @@ export default function App() {
   async function confirmAndExportPrint() {
     setConfirmPrint(false)
     try {
-      const filename = `guzitools-badge-${editor.finishedDiameterMm}mm-artwork-${editor.printDiameterMm}mm-${OUTPUT_DPI}dpi.png`
+      const filename = `guzitools-badge-${editor.shape}-${editor.finishedDiameterMm}mm-${craftLabel}-artwork-${editor.printDiameterMm}mm-${OUTPUT_DPI}dpi.png`
       await downloadCanvas(createPrintExport(editor), filename, OUTPUT_DPI)
       setMessage(`${printPixels}x${printPixels}px 制作原图已导出, 包含${wrapMarginMm}mm包边区.`)
       setIsError(false)
@@ -327,6 +349,15 @@ export default function App() {
     }))
     setConfirmPrint(false)
     setMessage(`${preset.label} 成品尺寸已切换, 图片位置保持不变.`)
+    setIsError(false)
+  }
+
+  function selectBadgeShape(shape: BadgeShape) {
+    const selected = BADGE_SHAPES.find((candidate) => candidate.id === shape)
+    if (!selected) return
+    setEditor((current) => ({ ...current, shape }))
+    setConfirmPrint(false)
+    setMessage(`${selected.label}吧唧已切换, 图片位置保持不变.`)
     setIsError(false)
   }
 
@@ -385,12 +416,11 @@ export default function App() {
             <button
               type="button"
               className="icon-button"
-              onClick={() => setPaused((current) => !current)}
-              disabled={editor.craft === 'plain'}
-              aria-label={paused ? '播放镭射动画' : '暂停镭射动画'}
-              title={paused ? '播放镭射动画' : '暂停镭射动画'}
+              onClick={() => setAnimate((current) => !current)}
+              aria-label={animate ? '停止动态预览' : '开始动态预览'}
+              title={animate ? '停止动态预览' : '开始动态预览'}
             >
-              {paused ? <Play size={18} /> : <Pause size={18} />}
+              {animate ? <Pause size={18} /> : <Play size={18} />}
             </button>
           </div>
 
@@ -398,7 +428,7 @@ export default function App() {
             <canvas
               ref={canvasRef}
               tabIndex={0}
-              aria-label={view === 'preview' ? '吧唧成品预览画布' : '吧唧包边预览画布'}
+              aria-label={view === 'preview' ? `${activeShape.label}吧唧成品预览画布` : `${activeShape.label}吧唧包边预览画布`}
               onPointerDown={pointerDown}
               onPointerMove={pointerMove}
               onPointerUp={pointerUp}
@@ -416,7 +446,7 @@ export default function App() {
 
           <div className="stage-footer">
             {view === 'preview' ? (
-              <span>{editor.finishedDiameterMm}mm 成品正面</span>
+              <span>{editor.finishedDiameterMm}mm {activeShape.label}成品正面</span>
             ) : (
               <div className="guide-legend" aria-label="印刷参考线">
                 <span><i className="line print-line" />完整图片边界</span>
@@ -493,44 +523,101 @@ export default function App() {
             </label>
           </section>
 
-          <section className="panel-section">
-            <div className="section-heading">
-              <div>
-                <span className="section-kicker">FINISH</span>
-                <h2>工艺</h2>
-              </div>
-            </div>
-            <div className="craft-options">
-              <button
-                type="button"
-                className={editor.craft === 'plain' ? 'is-selected' : ''}
-                aria-pressed={editor.craft === 'plain'}
-                onClick={() => changeCraft('plain')}
-              >
-                <span className="craft-swatch plain"><Circle size={18} /></span>
-                无工艺
-              </button>
-              <button
-                type="button"
-                className={editor.craft === 'holographic' ? 'is-selected' : ''}
-                aria-pressed={editor.craft === 'holographic'}
-                onClick={() => changeCraft('holographic')}
-              >
-                <span className="craft-swatch holographic"><Sparkles size={18} /></span>
-                镭射膜
-              </button>
-            </div>
-          </section>
+         <section className="panel-section">
+           <div className="section-heading">
+             <div>
+               <span className="section-kicker">FINISH</span>
+               <h2>工艺</h2>
+             </div>
+           </div>
+           <span className="control-label">闪底</span>
+           <div className="craft-options">
+             <button
+               type="button"
+               className={editor.baseCraft === 'none' ? 'is-selected' : ''}
+               aria-pressed={editor.baseCraft === 'none'}
+               onClick={() => changeBaseCraft('none')}
+             >
+               <span className="craft-swatch plain"><Circle size={18} /></span>
+               无闪底
+             </button>
+             <button
+               type="button"
+               className={editor.baseCraft === 'silver-glitter' ? 'is-selected' : ''}
+               aria-pressed={editor.baseCraft === 'silver-glitter'}
+               onClick={() => changeBaseCraft('silver-glitter')}
+             >
+               <span className="craft-swatch glitter"><Sparkles size={18} /></span>
+               银闪
+             </button>
+           </div>
+
+           <span className="control-label craft-sub-label">覆膜</span>
+           <div className="craft-options">
+             <button
+               type="button"
+               className={editor.filmCraft === 'none' ? 'is-selected' : ''}
+               aria-pressed={editor.filmCraft === 'none'}
+               onClick={() => changeFilmCraft('none')}
+             >
+               <span className="craft-swatch plain"><Circle size={18} /></span>
+               无膜
+             </button>
+             <button
+               type="button"
+               className={editor.filmCraft === 'glossy' ? 'is-selected' : ''}
+               aria-pressed={editor.filmCraft === 'glossy'}
+               onClick={() => changeFilmCraft('glossy')}
+             >
+               <span className="craft-swatch glossy"><Sun size={18} /></span>
+               亮膜
+             </button>
+             <button
+               type="button"
+               className={editor.filmCraft === 'rainbow' ? 'is-selected' : ''}
+               aria-pressed={editor.filmCraft === 'rainbow'}
+               onClick={() => changeFilmCraft('rainbow')}
+             >
+               <span className="craft-swatch holographic"><Gem size={18} /></span>
+               素面镭射
+             </button>
+           </div>
+           <p className="craft-hint">
+             银闪 + 素面镭射 = 双闪. 底层闪粉提供内部闪烁, 表面膜层提供光泽或彩虹反光.
+           </p>
+         </section>
 
           <section className="panel-section">
             <div className="section-heading">
               <div>
-                <span className="section-kicker">SIZE</span>
-                <h2>成品尺寸</h2>
+                <span className="section-kicker">SPEC</span>
+                <h2>吧唧规格</h2>
               </div>
               <span className="pixel-readout">{printPixels}px</span>
             </div>
 
+            <span className="control-label">形状</span>
+            <div className="shape-options" aria-label="吧唧形状">
+              {BADGE_SHAPES.map((shape) => {
+                const ShapeIcon = shape.id === 'round'
+                  ? Circle
+                  : Square
+                return (
+                  <button
+                    key={shape.id}
+                    type="button"
+                    className={editor.shape === shape.id ? 'is-selected' : ''}
+                    aria-pressed={editor.shape === shape.id}
+                    onClick={() => selectBadgeShape(shape.id)}
+                  >
+                    <ShapeIcon size={18} aria-hidden="true" />
+                    {shape.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            <span className="control-label size-control-label">尺寸</span>
             <div className="size-options" aria-label="吧唧成品尺寸">
               {BADGE_PRESETS.map((preset) => (
                 <button
@@ -547,11 +634,11 @@ export default function App() {
 
             <div className="dimension-grid">
               <div>
-                <span>成品可见直径</span>
+                <span>{visibleSizeLabel}</span>
                 <strong>{editor.finishedDiameterMm}mm</strong>
               </div>
               <div>
-                <span>完整图片直径</span>
+                <span>{artworkSizeLabel}</span>
                 <strong>{editor.printDiameterMm}mm</strong>
               </div>
               <div>
@@ -565,8 +652,8 @@ export default function App() {
             </div>
 
             <div className="size-note">
-              <strong>看图就能理解</strong>
-              外圈会被包边压入内部, 文字和主体尽量放在安全区内.
+              <strong>压边结构</strong>
+              外圈会被包入金属边内, 正面图案从可见区开始. 文字和主体尽量放在安全区内.
             </div>
           </section>
 
@@ -593,7 +680,7 @@ export default function App() {
               <div className="confirm-panel" role="alert">
                 <strong>确认导出制作原图</strong>
                 <p>
-                  将导出 {editor.printDiameterMm}mm 完整图片、{editor.finishedDiameterMm}mm 成品可见区的 {printPixels}x{printPixels}px PNG.
+                  将导出 {editor.printDiameterMm}mm 完整图片、{editor.finishedDiameterMm}mm {activeShape.label}成品可见区的 {printPixels}x{printPixels}px PNG.
                   外圈包边区不会出现在成品正面.
                 </p>
                 <div>

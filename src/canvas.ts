@@ -1,6 +1,7 @@
 import {
   mmToPixels,
   previewDiameterRatio,
+  type BadgeShape,
   type Transform,
 } from './geometry.ts'
 
@@ -9,7 +10,10 @@ export const PREVIEW_EXPORT_SIZE = 1080
 export const MAX_FILE_BYTES = 15 * 1024 * 1024
 export const MAX_WORKING_EDGE = 2048
 
-export type Craft = 'plain' | 'holographic'
+export type BaseCraft = 'none' | 'silver-glitter'
+export type FilmCraft = 'none' | 'glossy' | 'rainbow'
+
+export type Craft = BaseCraft | FilmCraft
 export type ViewMode = 'preview' | 'print'
 
 export type Artwork = {
@@ -23,7 +27,9 @@ export type Artwork = {
 export type RenderState = {
   artwork: Artwork
   transform: Transform
-  craft: Craft
+  baseCraft: BaseCraft
+  filmCraft: FilmCraft
+  shape: BadgeShape
   printDiameterMm: number
   finishedDiameterMm: number
   safeDiameterMm: number
@@ -35,26 +41,59 @@ function getContext(canvas: HTMLCanvasElement) {
   return context
 }
 
-function circlePath(
+function traceShapePath(
   context: CanvasRenderingContext2D,
+  shape: BadgeShape,
   x: number,
   y: number,
-  diameter: number,
+  size: number,
 ) {
-  context.beginPath()
-  context.arc(x, y, diameter / 2, 0, Math.PI * 2)
+  if (shape === 'round') {
+    context.arc(x, y, size / 2, 0, Math.PI * 2)
+    return
+  }
+
+  // square with 10% corner radius
+  const half = size / 2
+  const radius = size * 0.1
+  const left = x - half
+  const right = x + half
+  const top = y - half
+  const bottom = y + half
+  context.moveTo(left + radius, top)
+  context.lineTo(right - radius, top)
+  context.quadraticCurveTo(right, top, right, top + radius)
+  context.lineTo(right, bottom - radius)
+  context.quadraticCurveTo(right, bottom, right - radius, bottom)
+  context.lineTo(left + radius, bottom)
+  context.quadraticCurveTo(left, bottom, left, bottom - radius)
+  context.lineTo(left, top + radius)
+  context.quadraticCurveTo(left, top, left + radius, top)
+  context.closePath()
 }
 
-function ringPath(
+function shapePath(
   context: CanvasRenderingContext2D,
+  shape: BadgeShape,
   x: number,
   y: number,
-  outerDiameter: number,
-  innerDiameter: number,
+  size: number,
 ) {
   context.beginPath()
-  context.arc(x, y, outerDiameter / 2, 0, Math.PI * 2)
-  context.arc(x, y, innerDiameter / 2, 0, Math.PI * 2)
+  traceShapePath(context, shape, x, y, size)
+}
+
+function shapeRingPath(
+  context: CanvasRenderingContext2D,
+  shape: BadgeShape,
+  x: number,
+  y: number,
+  outerSize: number,
+  innerSize: number,
+) {
+  context.beginPath()
+  traceShapePath(context, shape, x, y, outerSize)
+  traceShapePath(context, shape, x, y, innerSize)
 }
 
 function drawMappedArtwork(
@@ -63,59 +102,270 @@ function drawMappedArtwork(
   centerX: number,
   centerY: number,
   printDiameter: number,
+  canvasSize: number,
 ) {
   const { artwork, transform } = state
   const baseScale = printDiameter / Math.min(artwork.width, artwork.height)
   const scale = baseScale * transform.zoom
   const width = artwork.width * scale
   const height = artwork.height * scale
-  const x = centerX - width / 2 + transform.offsetX * printDiameter
-  const y = centerY - height / 2 + transform.offsetY * printDiameter
+  const x = centerX - width / 2 + transform.offsetX * canvasSize
+  const y = centerY - height / 2 + transform.offsetY * canvasSize
 
   context.drawImage(artwork.source, x, y, width, height)
 }
 
-function drawHolographicFilm(
+function drawSilverGlitter(
   context: CanvasRenderingContext2D,
-  center: number,
-  diameter: number,
-  phase: number,
+  shape: BadgeShape,
+  centerX: number,
+  centerY: number,
+  faceSize: number,
+  tilt: number,
 ) {
   context.save()
-  circlePath(context, center, center, diameter)
+  shapePath(context, shape, centerX, centerY, faceSize)
   context.clip()
-  context.globalCompositeOperation = 'soft-light'
-  context.translate(center, center)
-  context.rotate(-0.52)
+  context.translate(centerX, centerY)
 
-  const travel = diameter * 1.5
-  const shift = ((phase % 1) - 0.5) * travel
-  const band = diameter * 0.58
-  const gradient = context.createLinearGradient(
-    shift - band,
-    0,
-    shift + band,
-    0,
-  )
-  gradient.addColorStop(0, 'rgba(99, 214, 209, 0)')
-  gradient.addColorStop(0.18, 'rgba(99, 214, 209, 0.22)')
-  gradient.addColorStop(0.38, 'rgba(244, 211, 94, 0.18)')
-  gradient.addColorStop(0.56, 'rgba(240, 90, 79, 0.2)')
-  gradient.addColorStop(0.74, 'rgba(111, 111, 255, 0.18)')
-  gradient.addColorStop(1, 'rgba(99, 214, 209, 0)')
-  context.fillStyle = gradient
-  context.fillRect(-diameter * 1.5, -diameter, diameter * 3, diameter * 2)
-
+  // 银闪底: fine silver sparkle particles embedded in the base layer.
+  // Scattered bright dots with varying size, shimmer with tilt.
   context.globalCompositeOperation = 'screen'
-  context.globalAlpha = 0.08
-  context.strokeStyle = '#ffffff'
-  context.lineWidth = Math.max(1, diameter * 0.003)
-  for (let x = -diameter; x <= diameter; x += diameter * 0.075) {
-    context.beginPath()
-    context.moveTo(x + shift * 0.2, -diameter)
-    context.lineTo(x + diameter * 0.24 + shift * 0.2, diameter)
-    context.stroke()
+  const count = 280
+  // Deterministic pseudo-random for stable particle positions
+  let seed = 12345
+  const rand = () => {
+    seed = (seed * 16807) % 2147483647
+    return seed / 2147483647
   }
+  for (let i = 0; i < count; i += 1) {
+    const rx = (rand() - 0.5) * faceSize * 1.1
+    const ry = (rand() - 0.5) * faceSize * 1.1
+    // Skip points outside the badge (rough check for both shapes)
+    const dist = Math.hypot(rx, ry)
+    if (dist > faceSize * 0.48) continue
+    const size = 0.6 + rand() * 1.8
+    const phase = rand() * Math.PI * 2
+    const shimmer = 0.3 + 0.7 * Math.abs(Math.sin(tilt * 2 + phase))
+    const alpha = 0.15 + shimmer * 0.5
+    context.fillStyle = `rgba(220, 228, 240, ${alpha})`
+    context.beginPath()
+    context.arc(rx, ry, size, 0, Math.PI * 2)
+    context.fill()
+  }
+
+  context.restore()
+}
+
+function drawGlossyFilm(
+  context: CanvasRenderingContext2D,
+  shape: BadgeShape,
+  centerX: number,
+  centerY: number,
+  faceSize: number,
+  tilt: number,
+) {
+  context.save()
+  shapePath(context, shape, centerX, centerY, faceSize)
+  context.clip()
+  context.translate(centerX, centerY)
+
+  // 亮膜: smooth high-gloss reflection, single bright highlight that moves with tilt.
+  context.globalCompositeOperation = 'screen'
+  const hx = tilt * faceSize * 0.28
+  const hy = -faceSize * 0.15 + Math.abs(tilt) * faceSize * 0.05
+  const highlight = context.createRadialGradient(hx, hy, 0, hx, hy, faceSize * 0.55)
+  highlight.addColorStop(0, 'rgba(255, 255, 255, 0.38)')
+  highlight.addColorStop(0.25, 'rgba(255, 255, 255, 0.15)')
+  highlight.addColorStop(0.6, 'rgba(255, 255, 255, 0.04)')
+  highlight.addColorStop(1, 'rgba(255, 255, 255, 0)')
+  context.fillStyle = highlight
+  context.fillRect(-faceSize, -faceSize, faceSize * 2, faceSize * 2)
+
+  // Subtle full-face brightness lift
+  context.globalCompositeOperation = 'soft-light'
+  context.fillStyle = 'rgba(255, 255, 255, 0.08)'
+  context.fillRect(-faceSize, -faceSize, faceSize * 2, faceSize * 2)
+
+  context.restore()
+}
+
+function drawHolographicFilm(
+  context: CanvasRenderingContext2D,
+  shape: BadgeShape,
+  centerX: number,
+  centerY: number,
+  faceSize: number,
+  tilt: number,
+) {
+  context.save()
+  shapePath(context, shape, centerX, centerY, faceSize)
+  context.clip()
+  context.translate(centerX, centerY)
+
+  // 素面镭射: smooth rainbow sheen across entire face, shifts with viewing angle.
+  // tilt: -1 to 1, controls the hue rotation and highlight position.
+
+  // Layer 1: conic rainbow — full spectrum radiating from center, rotates with tilt.
+  // Uses screen blend so rainbow colors are clearly visible over any artwork.
+  context.globalCompositeOperation = 'screen'
+  const steps = 36
+  const rotAngle = tilt * 1.2
+  for (let i = 0; i < steps; i += 1) {
+    const t0 = i / steps
+    const t1 = (i + 1) / steps
+    const a0 = t0 * Math.PI * 2 + rotAngle
+    const a1 = t1 * Math.PI * 2 + rotAngle
+    const hue = ((t0 * 360 + tilt * 40) % 360)
+    context.fillStyle = `hsla(${hue}, 95%, 55%, 0.22)`
+    context.beginPath()
+    context.moveTo(0, 0)
+    context.arc(0, 0, faceSize * 0.72, a0, a1)
+    context.closePath()
+    context.fill()
+  }
+
+  // Layer 2: moving specular highlight — bright spot that travels with tilt.
+  context.globalCompositeOperation = 'screen'
+  const hx = tilt * faceSize * 0.32
+  const hy = -faceSize * 0.12 + Math.abs(tilt) * faceSize * 0.06
+  const highlight = context.createRadialGradient(hx, hy, 0, hx, hy, faceSize * 0.42)
+  highlight.addColorStop(0, 'rgba(255, 255, 255, 0.45)')
+  highlight.addColorStop(0.3, 'rgba(255, 255, 255, 0.18)')
+  highlight.addColorStop(1, 'rgba(255, 255, 255, 0)')
+  context.fillStyle = highlight
+  context.fillRect(-faceSize, -faceSize, faceSize * 2, faceSize * 2)
+
+  // Layer 3: iridescent edge ring — stronger color near the badge edge.
+  context.globalCompositeOperation = 'overlay'
+  context.globalAlpha = 0.45
+  const edge = context.createRadialGradient(0, 0, faceSize * 0.25, 0, 0, faceSize * 0.52)
+  const eh = ((tilt * 180 + 200) % 360)
+  edge.addColorStop(0, `hsla(${eh}, 90%, 50%, 0)`)
+  edge.addColorStop(0.6, `hsla(${eh}, 90%, 50%, 0.05)`)
+  edge.addColorStop(0.85, `hsla(${((eh + 60) % 360)}, 95%, 55%, 0.2)`)
+  edge.addColorStop(1, `hsla(${((eh + 120) % 360)}, 95%, 55%, 0.4)`)
+  context.fillStyle = edge
+  context.fillRect(-faceSize, -faceSize, faceSize * 2, faceSize * 2)
+
+  context.restore()
+}
+
+function drawEdgeShadow(
+  context: CanvasRenderingContext2D,
+  shape: BadgeShape,
+  centerX: number,
+  centerY: number,
+  faceSize: number,
+) {
+  context.save()
+  shapePath(context, shape, centerX, centerY, faceSize)
+  context.clip()
+
+  if (shape === 'round') {
+    // Radial gradient works well for circles.
+    const wrap = context.createRadialGradient(
+      centerX,
+      centerY,
+      faceSize * 0.34,
+      centerX,
+      centerY,
+      faceSize * 0.52,
+    )
+    wrap.addColorStop(0, 'rgba(0, 0, 0, 0)')
+    wrap.addColorStop(0.6, 'rgba(0, 0, 0, 0)')
+    wrap.addColorStop(0.8, 'rgba(0, 0, 0, 0.04)')
+    wrap.addColorStop(0.92, 'rgba(0, 0, 0, 0.16)')
+    wrap.addColorStop(1, 'rgba(0, 0, 0, 0.36)')
+    context.fillStyle = wrap
+    context.fillRect(
+      centerX - faceSize / 2,
+      centerY - faceSize / 2,
+      faceSize,
+      faceSize,
+    )
+  } else {
+    // For square: use inset box-shadow approach — draw shadow from edges inward.
+    const half = faceSize / 2
+    const blur = faceSize * 0.08
+    const max = faceSize * 0.12
+
+    // Use four linear gradients from each edge, composited together.
+    // Top edge
+    const top = context.createLinearGradient(0, centerY - half, 0, centerY - half + max)
+    top.addColorStop(0, 'rgba(0, 0, 0, 0.28)')
+    top.addColorStop(1, 'rgba(0, 0, 0, 0)')
+    context.fillStyle = top
+    context.fillRect(centerX - half, centerY - half, faceSize, max)
+
+    // Bottom edge
+    const bottom = context.createLinearGradient(0, centerY + half - max, 0, centerY + half)
+    bottom.addColorStop(0, 'rgba(0, 0, 0, 0)')
+    bottom.addColorStop(1, 'rgba(0, 0, 0, 0.28)')
+    context.fillStyle = bottom
+    context.fillRect(centerX - half, centerY + half - max, faceSize, max)
+
+    // Left edge
+    const left = context.createLinearGradient(centerX - half, 0, centerX - half + max, 0)
+    left.addColorStop(0, 'rgba(0, 0, 0, 0.28)')
+    left.addColorStop(1, 'rgba(0, 0, 0, 0)')
+    context.fillStyle = left
+    context.fillRect(centerX - half, centerY - half, max, faceSize)
+
+    // Right edge
+    const right = context.createLinearGradient(centerX + half - max, 0, centerX + half, 0)
+    right.addColorStop(0, 'rgba(0, 0, 0, 0)')
+    right.addColorStop(1, 'rgba(0, 0, 0, 0.28)')
+    context.fillStyle = right
+    context.fillRect(centerX + half - max, centerY - half, max, faceSize)
+
+    // Corner darkening — subtle radial at each corner
+    const cornerR = faceSize * 0.15
+    const corners = [
+      [centerX - half, centerY - half],
+      [centerX + half, centerY - half],
+      [centerX - half, centerY + half],
+      [centerX + half, centerY + half],
+    ]
+    for (const [cx, cy] of corners) {
+      const cg = context.createRadialGradient(cx, cy, 0, cx, cy, cornerR)
+      cg.addColorStop(0, 'rgba(0, 0, 0, 0.22)')
+      cg.addColorStop(1, 'rgba(0, 0, 0, 0)')
+      context.fillStyle = cg
+      context.fillRect(cx - cornerR, cy - cornerR, cornerR * 2, cornerR * 2)
+    }
+  }
+
+  context.restore()
+}
+
+function drawBadgeFace(
+  context: CanvasRenderingContext2D,
+  state: RenderState,
+  centerX: number,
+  centerY: number,
+  faceSize: number,
+  artworkSize: number,
+  canvasSize: number,
+  tilt: number,
+) {
+  context.save()
+  shapePath(context, state.shape, centerX, centerY, faceSize)
+  context.clip()
+  drawMappedArtwork(context, state, centerX, centerY, artworkSize, canvasSize)
+
+  if (state.baseCraft === 'silver-glitter') {
+    drawSilverGlitter(context, state.shape, centerX, centerY, faceSize, tilt)
+  }
+
+  if (state.filmCraft === 'glossy') {
+    drawGlossyFilm(context, state.shape, centerX, centerY, faceSize, tilt)
+  } else if (state.filmCraft === 'rainbow') {
+    drawHolographicFilm(context, state.shape, centerX, centerY, faceSize, tilt)
+  }
+
+  drawEdgeShadow(context, state.shape, centerX, centerY, faceSize)
+
   context.restore()
 }
 
@@ -123,13 +373,11 @@ function drawPreviewScene(
   context: CanvasRenderingContext2D,
   size: number,
   state: RenderState,
-  phase: number,
+  tilt: number,
 ) {
   const center = size / 2
-  const finishedDiameter = size * previewDiameterRatio(state.finishedDiameterMm)
-  const printDiameter =
-    finishedDiameter * (state.printDiameterMm / state.finishedDiameterMm)
-  const shellDiameter = finishedDiameter * 1.08
+  const faceSize = size * previewDiameterRatio(state.finishedDiameterMm)
+  const artworkSize = faceSize * (state.printDiameterMm / state.finishedDiameterMm)
 
   context.fillStyle = '#e8ecef'
   context.fillRect(0, 0, size, size)
@@ -148,69 +396,30 @@ function drawPreviewScene(
   }
   context.restore()
 
+  // Circular wobble: X = sin, Y = cos — traces a circle like swirling a glass.
+  const tiltAngle = tilt * 0.10
+  const tiltOffsetX = tilt * faceSize * 0.03
+  const tiltY = Math.sqrt(Math.max(0, 1 - tilt * tilt))
+  const tiltOffsetY = tiltY * faceSize * 0.018
+
+  // Drop shadow.
   context.save()
-  context.shadowColor = 'rgba(23, 24, 28, 0.28)'
-  context.shadowBlur = finishedDiameter * 0.088
-  context.shadowOffsetY = finishedDiameter * 0.056
-  circlePath(context, center, center, shellDiameter)
-  context.fillStyle = '#aab0b5'
+  context.translate(center + tiltOffsetX, center + tiltOffsetY)
+  context.rotate(tiltAngle)
+  context.shadowColor = 'rgba(23, 24, 28, 0.22)'
+  context.shadowBlur = faceSize * (0.06 + Math.abs(tilt) * 0.03)
+  context.shadowOffsetY = faceSize * (0.04 + Math.abs(tilt) * 0.02)
+  shapePath(context, state.shape, 0, 0, faceSize)
+  context.fillStyle = '#000'
   context.fill()
   context.restore()
 
-  const metal = context.createLinearGradient(
-    center - shellDiameter / 2,
-    center - shellDiameter / 2,
-    center + shellDiameter / 2,
-    center + shellDiameter / 2,
-  )
-  metal.addColorStop(0, '#f9fbfc')
-  metal.addColorStop(0.24, '#9aa0a5')
-  metal.addColorStop(0.48, '#f3f5f6')
-  metal.addColorStop(0.72, '#7d8388')
-  metal.addColorStop(1, '#dfe3e5')
-  circlePath(context, center, center, shellDiameter)
-  context.fillStyle = metal
-  context.fill()
-
+  // Badge face.
   context.save()
-  circlePath(context, center, center, finishedDiameter)
-  context.clip()
-  drawMappedArtwork(context, state, center, center, printDiameter)
+  context.translate(center + tiltOffsetX, center + tiltOffsetY)
+  context.rotate(tiltAngle)
+  drawBadgeFace(context, state, 0, 0, faceSize, artworkSize, size, tilt)
   context.restore()
-
-  if (state.craft === 'holographic') {
-    drawHolographicFilm(context, center, finishedDiameter, phase)
-  }
-
-  if (state.craft === 'holographic') {
-    context.save()
-    circlePath(context, center, center, finishedDiameter)
-    context.clip()
-    const gloss = context.createRadialGradient(
-      center - finishedDiameter * 0.22,
-      center - finishedDiameter * 0.26,
-      finishedDiameter * 0.04,
-      center,
-      center,
-      finishedDiameter * 0.62,
-    )
-    gloss.addColorStop(0, 'rgba(255, 255, 255, 0.16)')
-    gloss.addColorStop(0.42, 'rgba(255, 255, 255, 0.025)')
-    gloss.addColorStop(1, 'rgba(23, 24, 28, 0.08)')
-    context.fillStyle = gloss
-    context.fillRect(0, 0, size, size)
-    context.restore()
-  }
-
-  circlePath(context, center, center, finishedDiameter)
-  context.strokeStyle = 'rgba(255, 255, 255, 0.72)'
-  context.lineWidth = Math.max(2, finishedDiameter * 0.0128)
-  context.stroke()
-
-  circlePath(context, center, center, shellDiameter)
-  context.strokeStyle = 'rgba(23, 24, 28, 0.34)'
-  context.lineWidth = Math.max(2, finishedDiameter * 0.0096)
-  context.stroke()
 }
 
 function drawPrintWorkspace(
@@ -238,30 +447,46 @@ function drawPrintWorkspace(
   }
 
   context.save()
-  circlePath(context, center, center, printDiameter)
+  shapePath(context, state.shape, center, center, printDiameter)
   context.clip()
-  drawMappedArtwork(context, state, center, center, printDiameter)
+  const previewFaceSize = size * previewDiameterRatio(state.finishedDiameterMm)
+  const previewArtworkSize = previewFaceSize * (state.printDiameterMm / state.finishedDiameterMm)
+  drawMappedArtwork(
+    context,
+    state,
+    center,
+    center,
+    previewArtworkSize,
+    size,
+  )
   context.restore()
 
   context.save()
-  ringPath(context, center, center, printDiameter, finishedDiameter)
+  shapeRingPath(
+    context,
+    state.shape,
+    center,
+    center,
+    printDiameter,
+    finishedDiameter,
+  )
   context.fillStyle = 'rgba(244, 211, 94, 0.17)'
   context.fill('evenodd')
   context.restore()
 
   context.save()
   context.lineWidth = size * 0.006
-  circlePath(context, center, center, printDiameter)
+  shapePath(context, state.shape, center, center, printDiameter)
   context.strokeStyle = '#f05a4f'
   context.setLineDash([])
   context.stroke()
 
-  circlePath(context, center, center, finishedDiameter)
+  shapePath(context, state.shape, center, center, finishedDiameter)
   context.strokeStyle = '#17181c'
   context.setLineDash([size * 0.018, size * 0.012])
   context.stroke()
 
-  circlePath(context, center, center, safeDiameter)
+  shapePath(context, state.shape, center, center, safeDiameter)
   context.strokeStyle = '#20a9a5'
   context.setLineDash([size * 0.004, size * 0.012])
   context.stroke()
@@ -272,7 +497,7 @@ export function renderWorkspace(
   canvas: HTMLCanvasElement,
   state: RenderState,
   view: ViewMode,
-  phase: number,
+  tilt: number,
 ) {
   if (canvas.width !== DISPLAY_SIZE || canvas.height !== DISPLAY_SIZE) {
     canvas.width = DISPLAY_SIZE
@@ -282,7 +507,7 @@ export function renderWorkspace(
   const context = getContext(canvas)
   context.clearRect(0, 0, DISPLAY_SIZE, DISPLAY_SIZE)
   if (view === 'preview') {
-    drawPreviewScene(context, DISPLAY_SIZE, state, phase)
+    drawPreviewScene(context, DISPLAY_SIZE, state, tilt)
   } else {
     drawPrintWorkspace(context, DISPLAY_SIZE, state)
   }
@@ -296,7 +521,7 @@ export function createPreviewExport(state: RenderState) {
     getContext(canvas),
     PREVIEW_EXPORT_SIZE,
     state,
-    state.craft === 'holographic' ? 0.56 : 0,
+    0,
   )
   return canvas
 }
@@ -310,9 +535,9 @@ export function createPrintExport(state: RenderState) {
 
   context.clearRect(0, 0, size, size)
   context.save()
-  circlePath(context, size / 2, size / 2, size)
+  shapePath(context, state.shape, size / 2, size / 2, size)
   context.clip()
-  drawMappedArtwork(context, state, size / 2, size / 2, size)
+  drawMappedArtwork(context, state, size / 2, size / 2, size, size)
   context.restore()
   return canvas
 }
@@ -453,7 +678,7 @@ export function createDemoArtwork(): Artwork {
   context.fillStyle = '#ffffff'
   context.font = '700 72px system-ui, sans-serif'
   context.textAlign = 'center'
-  context.fillText('MAKE IT YOURS', size / 2, size * 0.78)
+  context.fillText('MAKE IT YOURS', size / 2, size * 0.7)
 
   return {
     source: canvas,

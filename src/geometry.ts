@@ -1,5 +1,12 @@
 export const OUTPUT_DPI = 300
 
+export type BadgeShape = 'round' | 'square'
+
+export const BADGE_SHAPES: Array<{ id: BadgeShape; label: string }> = [
+  { id: 'round', label: '圆形' },
+  { id: 'square', label: '方形' },
+]
+
 export type BadgePreset = {
   id: string
   label: string
@@ -8,7 +15,7 @@ export type BadgePreset = {
   safeDiameterMm: number
 }
 
-// These are user-facing reference values, not any specific factory's die line.
+// ponytail: generic wrap values, replace with measured per-shape profiles when physical calibration matters.
 export const BADGE_PRESETS: BadgePreset[] = [
   { id: '25', label: '25mm', finishedDiameterMm: 25, printDiameterMm: 31, safeDiameterMm: 23 },
   { id: '32', label: '32mm', finishedDiameterMm: 32, printDiameterMm: 38, safeDiameterMm: 30 },
