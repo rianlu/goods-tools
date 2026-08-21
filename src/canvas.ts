@@ -11,8 +11,22 @@ export const PREVIEW_EXPORT_SIZE = 1080
 export const MAX_FILE_BYTES = 15 * 1024 * 1024
 export const MAX_WORKING_EDGE = 2048
 
-export type BaseCraft = 'none' | 'silver-glitter' | 'gold-glitter' | 'pearl'
-export type FilmCraft = 'none' | 'glossy' | 'matte' | 'rainbow' | 'cracked-ice' | 'lattice'
+export type BaseCraft =
+  | 'none'
+  | 'fine-silver'
+  | 'silver-glitter'
+  | 'brushed-silver'
+  | 'sand-glitter'
+  | 'gold-glitter'
+  | 'pearl'
+
+export type FilmCraft =
+  | 'none'
+  | 'glossy'
+  | 'matte'
+  | 'rainbow'
+  | 'cracked-ice'
+  | 'cross'
 
 export type Craft = BaseCraft | FilmCraft
 export type ViewMode = 'preview' | 'print'
@@ -135,10 +149,15 @@ function drawMappedArtwork(
 }
 
 // ---------------------------------------------------------------------------
-// Glitter Base Engine (Procedural High-Density Micro-Flakes & Star Sparkles)
+// Glitter Base Engine (Fine Silver, Chunky Silver Onion, Gold, Brushed, Sand)
 // ---------------------------------------------------------------------------
 
-type GlitterCraft = 'silver-glitter' | 'gold-glitter'
+type GlitterCraft =
+  | 'fine-silver'
+  | 'silver-glitter'
+  | 'gold-glitter'
+  | 'brushed-silver'
+  | 'sand-glitter'
 
 type GlitterStar = {
   x: number
@@ -163,22 +182,34 @@ function getGlitterLayer(craft: GlitterCraft, faceSize: number): GlitterLayer {
 
   const size = Math.max(512, targetSize)
   const isGold = craft === 'gold-glitter'
-  const rand = seededRandom(isGold ? 104729 : 882377)
+  const isBrushed = craft === 'brushed-silver'
+  const isSand = craft === 'sand-glitter'
+  const isChunky = craft === 'silver-glitter' // Chunky silver onion with larger hexagonal sequins
+  const isFine = craft === 'fine-silver'
+
+  const seed = isGold ? 104729 : isBrushed ? 554433 : isSand ? 771122 : isChunky ? 993311 : 882377
+  const rand = seededRandom(seed)
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
   const ctx = getContext(canvas)
 
-  // 1. Dense microscopic background grain
+  // 1. Dense background micro-grain
   const imgData = ctx.createImageData(size, size)
   const data = imgData.data
+  const density = isSand ? 0.35 : isFine ? 0.26 : 0.16
+
   for (let i = 0; i < data.length; i += 4) {
-    if (rand() < 0.18) {
-      const bright = 0.4 + rand() * 0.6
+    if (rand() < density) {
+      const bright = isSand ? 0.5 + rand() * 0.5 : 0.4 + rand() * 0.6
       if (isGold) {
         data[i] = Math.round(255 * bright)
         data[i + 1] = Math.round((190 + rand() * 50) * bright)
         data[i + 2] = Math.round((60 + rand() * 60) * bright)
+      } else if (isSand) {
+        data[i] = Math.round((235 + rand() * 20) * bright)
+        data[i + 1] = Math.round((240 + rand() * 15) * bright)
+        data[i + 2] = Math.round((250 + rand() * 5) * bright)
       } else {
         data[i] = Math.round((225 + rand() * 30) * bright)
         data[i + 1] = Math.round((230 + rand() * 25) * bright)
@@ -189,29 +220,86 @@ function getGlitterLayer(craft: GlitterCraft, faceSize: number): GlitterLayer {
   }
   ctx.putImageData(imgData, 0, 0)
 
-  // 2. High-brightness metallic flake specks (medium flakes)
-  const flakeCount = Math.round((size / 512) ** 2 * 2400)
-  for (let i = 0; i < flakeCount; i++) {
-    const fx = rand() * size
-    const fy = rand() * size
-    const fr = 0.8 + rand() * 1.8
-    const alpha = 0.45 + rand() * 0.55
-    ctx.fillStyle = isGold
-      ? `rgba(255, ${205 + Math.round(rand() * 45)}, ${80 + Math.round(rand() * 70)}, ${alpha})`
-      : `rgba(${235 + Math.round(rand() * 20)}, ${242 + Math.round(rand() * 13)}, 255, ${alpha})`
-    ctx.beginPath()
-    ctx.arc(fx, fy, fr, 0, Math.PI * 2)
-    ctx.fill()
+  // Brushed Metal Streaks (for brushed-silver)
+  if (isBrushed) {
+    ctx.save()
+    ctx.rotate(-0.35)
+    const lineCount = 380
+    for (let i = 0; i < lineCount; i++) {
+      const ly = (rand() - 0.5) * size * 1.5
+      const lw = 0.5 + rand() * 1.5
+      const la = 0.08 + rand() * 0.22
+      ctx.strokeStyle = `rgba(255, 255, 255, ${la})`
+      ctx.lineWidth = lw
+      ctx.beginPath()
+      ctx.moveTo(-size, ly)
+      ctx.lineTo(size * 2, ly)
+      ctx.stroke()
+    }
+    ctx.restore()
+  }
+
+  // 2. Metallic flake specks / Sequins
+  if (isChunky) {
+    // 银葱 (Chunky Silver Onion): Distinct polygonal / hexagonal reflective glitter sequins
+    const sequinCount = Math.round((size / 512) ** 2 * 1400)
+    for (let i = 0; i < sequinCount; i++) {
+      const sx = rand() * size
+      const sy = rand() * size
+      const sr = 1.6 + rand() * 2.8
+      const rot = rand() * Math.PI
+      const alpha = 0.55 + rand() * 0.45
+
+      ctx.save()
+      ctx.translate(sx, sy)
+      ctx.rotate(rot)
+      ctx.fillStyle = `rgba(${230 + Math.round(rand() * 25)}, ${235 + Math.round(rand() * 20)}, 255, ${alpha})`
+
+      // Draw hexagonal flake
+      ctx.beginPath()
+      for (let side = 0; side < 6; side++) {
+        const a = (side * Math.PI) / 3
+        const px = Math.cos(a) * sr
+        const py = Math.sin(a) * sr
+        if (side === 0) ctx.moveTo(px, py)
+        else ctx.lineTo(px, py)
+      }
+      ctx.closePath()
+      ctx.fill()
+
+      // High-specular center glint
+      if (rand() > 0.6) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
+        ctx.fillRect(-sr * 0.25, -sr * 0.25, sr * 0.5, sr * 0.5)
+      }
+      ctx.restore()
+    }
+  } else {
+    // Standard / Fine / Sand / Gold flakes
+    const flakeMultiplier = isSand ? 0.6 : isFine ? 1.4 : 1.0
+    const flakeCount = Math.round((size / 512) ** 2 * 2400 * flakeMultiplier)
+    for (let i = 0; i < flakeCount; i++) {
+      const fx = rand() * size
+      const fy = rand() * size
+      const fr = isSand ? 0.4 + rand() * 0.7 : isFine ? 0.5 + rand() * 0.9 : 0.8 + rand() * 1.8
+      const alpha = 0.45 + rand() * 0.55
+      ctx.fillStyle = isGold
+        ? `rgba(255, ${205 + Math.round(rand() * 45)}, ${80 + Math.round(rand() * 70)}, ${alpha})`
+        : `rgba(${235 + Math.round(rand() * 20)}, ${242 + Math.round(rand() * 13)}, 255, ${alpha})`
+      ctx.beginPath()
+      ctx.arc(fx, fy, fr, 0, Math.PI * 2)
+      ctx.fill()
+    }
   }
 
   // 3. Crisp star sparkle points
-  const starCount = Math.round((size / 512) ** 2 * 32)
+  const starCount = isSand ? 18 : isFine ? 44 : isChunky ? 36 : 28
   const stars: GlitterStar[] = []
   for (let i = 0; i < starCount; i++) {
     stars.push({
       x: (rand() - 0.5) * size,
       y: (rand() - 0.5) * size,
-      r: (3.5 + rand() * 6.5) * (size / 512),
+      r: (isChunky ? 4.5 + rand() * 8.0 : isFine ? 2.5 + rand() * 4.8 : 3.5 + rand() * 6.5) * (size / 512),
       phase: rand() * Math.PI * 2,
       arms: rand() > 0.3 ? 4 : 6,
     })
@@ -270,14 +358,15 @@ function drawGlitterBase(
   centerX: number,
   centerY: number,
   faceSize: number,
-  tilt: number,
+  tiltX: number,
+  tiltY: number,
   phase: number | null,
   craft: GlitterCraft,
 ) {
   const layer = getGlitterLayer(craft, faceSize)
   const layerSize = layer.baseCanvas.width
-  const shiftX = tilt * faceSize * 0.025
-  const shiftY = Math.abs(tilt) * faceSize * 0.01
+  const shiftX = tiltX * faceSize * 0.025
+  const shiftY = tiltY * faceSize * 0.025
 
   context.save()
   shapePath(context, shape, centerX, centerY, faceSize)
@@ -286,7 +375,7 @@ function drawGlitterBase(
 
   // Base metallic grain layer with screen blending
   context.globalCompositeOperation = 'screen'
-  context.globalAlpha = 0.82
+  context.globalAlpha = craft === 'sand-glitter' ? 0.75 : 0.82
   context.drawImage(
     layer.baseCanvas,
     -layerSize / 2 + shiftX,
@@ -295,8 +384,26 @@ function drawGlitterBase(
     layerSize,
   )
 
+  // Sand glitter soft chromatic wash
+  if (craft === 'sand-glitter') {
+    const sandWash = context.createRadialGradient(
+      shiftX * 2,
+      shiftY * 2,
+      0,
+      0,
+      0,
+      faceSize * 0.5,
+    )
+    sandWash.addColorStop(0, 'rgba(255, 230, 245, 0.25)')
+    sandWash.addColorStop(0.5, 'rgba(220, 250, 255, 0.22)')
+    sandWash.addColorStop(1, 'rgba(255, 245, 225, 0.18)')
+    context.globalCompositeOperation = 'overlay'
+    context.fillStyle = sandWash
+    context.fillRect(-faceSize, -faceSize, faceSize * 2, faceSize * 2)
+  }
+
   // Shimmer band: sweeping light accent that intensifies particles in the specular zone
-  const bandCenter = tilt * faceSize * 0.4
+  const bandCenter = (tiltX * 0.7 + tiltY * 0.3) * faceSize * 0.4
   const bandHalf = faceSize * 0.38
   const shimmerGrad = context.createLinearGradient(
     bandCenter - bandHalf,
@@ -324,14 +431,15 @@ function drawGlitterAccents(
   centerX: number,
   centerY: number,
   faceSize: number,
-  tilt: number,
+  tiltX: number,
+  tiltY: number,
   phase: number | null,
   craft: GlitterCraft,
   isHolo: boolean,
 ) {
   const layer = getGlitterLayer(craft, faceSize)
-  const shiftX = tilt * faceSize * 0.025
-  const shiftY = Math.abs(tilt) * faceSize * 0.01
+  const shiftX = tiltX * faceSize * 0.025
+  const shiftY = tiltY * faceSize * 0.025
   const isGold = craft === 'gold-glitter'
 
   context.save()
@@ -347,8 +455,12 @@ function drawGlitterAccents(
     // Check if star falls inside badge radius
     if (Math.hypot(starX, starY) > (faceSize / 2) * 0.95) continue
 
-    // Twinkle modulation: sparkles peak based on time/phase + proximity to the tilt light axis
-    const lightAlign = 1 - Math.min(1, Math.abs(starX - tilt * faceSize * 0.35) / (faceSize * 0.45))
+    // Twinkle modulation: sparkles peak based on proximity to the 2D tilt axis
+    const lightDist = Math.hypot(
+      starX - tiltX * faceSize * 0.35,
+      starY - tiltY * faceSize * 0.35,
+    )
+    const lightAlign = 1 - Math.min(1, lightDist / (faceSize * 0.5))
     const twinkle =
       phase == null
         ? 0.35 + 0.55 * Math.sin(star.phase) ** 4
@@ -360,7 +472,12 @@ function drawGlitterAccents(
     let tint = isGold ? 'rgba(255, 220, 120, 0.95)' : 'rgba(235, 245, 255, 0.95)'
     if (isHolo) {
       // In double glitter, stars refracted through holographic film get chromatic rainbow dispersion
-      const hue = ((starX / faceSize) * 180 + (starY / faceSize) * 180 + tilt * 120 + 360) % 360
+      const hue =
+        ((starX / faceSize) * 180 +
+          (starY / faceSize) * 180 +
+          (tiltX + tiltY) * 90 +
+          360) %
+        360
       tint = `hsl(${hue}, 85%, 75%)`
     }
 
@@ -388,7 +505,8 @@ function drawPearlBase(
   centerX: number,
   centerY: number,
   faceSize: number,
-  tilt: number,
+  tiltX: number,
+  tiltY: number,
   phase: number | null,
 ) {
   context.save()
@@ -397,7 +515,7 @@ function drawPearlBase(
   context.translate(centerX, centerY)
 
   // Soft duo-chrome pearlescent wash (Rose-Cyan angle-dependent luster)
-  const angle = -0.45 + tilt * 0.3
+  const angle = -0.45 + tiltX * 0.3 + tiltY * 0.15
   context.rotate(angle)
 
   const pearlGrad = context.createLinearGradient(-faceSize * 0.6, 0, faceSize * 0.6, 0)
@@ -411,10 +529,15 @@ function drawPearlBase(
   context.fillRect(-faceSize * 1.5, -faceSize * 1.5, faceSize * 3, faceSize * 3)
 
   // Silky surface sheen band
-  const sweepCenter = tilt * faceSize * 0.35
+  const sweepCenter = (tiltX * 0.7 + tiltY * 0.3) * faceSize * 0.35
   const sweepHalf = faceSize * 0.32
-  const peak = phase == null ? 0.16 : 0.14 + 0.12 * Math.abs(tilt)
-  const sheenGrad = context.createLinearGradient(sweepCenter - sweepHalf, 0, sweepCenter + sweepHalf, 0)
+  const peak = phase == null ? 0.16 : 0.14 + 0.12 * Math.hypot(tiltX, tiltY)
+  const sheenGrad = context.createLinearGradient(
+    sweepCenter - sweepHalf,
+    0,
+    sweepCenter + sweepHalf,
+    0,
+  )
   sheenGrad.addColorStop(0, 'rgba(255, 255, 255, 0)')
   sheenGrad.addColorStop(0.5, `rgba(255, 252, 248, ${peak})`)
   sheenGrad.addColorStop(1, 'rgba(255, 255, 255, 0)')
@@ -436,7 +559,8 @@ function drawGlossyFilm(
   centerX: number,
   centerY: number,
   faceSize: number,
-  tilt: number,
+  tiltX: number,
+  tiltY: number,
   phase: number | null,
 ) {
   context.save()
@@ -450,13 +574,18 @@ function drawGlossyFilm(
   context.fillRect(-faceSize, -faceSize, faceSize * 2, faceSize * 2)
 
   // Curved window reflection bar
-  context.rotate(-0.48)
+  context.rotate(-0.48 + tiltY * 0.1)
   context.globalCompositeOperation = 'screen'
-  const peak = phase == null ? 0.24 : 0.2 + 0.14 * Math.abs(tilt)
-  const bandCenter = -faceSize * 0.08 + tilt * faceSize * 0.45
+  const peak = phase == null ? 0.24 : 0.2 + 0.14 * Math.hypot(tiltX, tiltY)
+  const bandCenter = -faceSize * 0.08 + (tiltX * 0.8 + tiltY * 0.4) * faceSize * 0.45
   const bandHalf = faceSize * 0.28
 
-  const mainBand = context.createLinearGradient(bandCenter - bandHalf, 0, bandCenter + bandHalf, 0)
+  const mainBand = context.createLinearGradient(
+    bandCenter - bandHalf,
+    0,
+    bandCenter + bandHalf,
+    0,
+  )
   mainBand.addColorStop(0, 'rgba(255, 255, 255, 0)')
   mainBand.addColorStop(0.3, `rgba(255, 255, 255, ${peak * 0.5})`)
   mainBand.addColorStop(0.5, `rgba(255, 255, 255, ${peak})`)
@@ -469,7 +598,12 @@ function drawGlossyFilm(
   // Secondary thin trailing reflection line
   const secCenter = bandCenter + faceSize * 0.22
   const secHalf = bandHalf * 0.24
-  const secLine = context.createLinearGradient(secCenter - secHalf, 0, secCenter + secHalf, 0)
+  const secLine = context.createLinearGradient(
+    secCenter - secHalf,
+    0,
+    secCenter + secHalf,
+    0,
+  )
   secLine.addColorStop(0, 'rgba(255, 255, 255, 0)')
   secLine.addColorStop(0.5, `rgba(255, 255, 255, ${peak * 0.45})`)
   secLine.addColorStop(1, 'rgba(255, 255, 255, 0)')
@@ -535,10 +669,10 @@ function drawMatteFilm(
 }
 
 // ---------------------------------------------------------------------------
-// Holographic Films: Rainbow, Cracked Ice, Lattice
+// Holographic Films: Rainbow, Cracked Ice, Cross Star
 // ---------------------------------------------------------------------------
 
-type HoloCraft = 'rainbow' | 'cracked-ice' | 'lattice'
+type HoloCraft = 'rainbow' | 'cracked-ice' | 'cross'
 
 function drawSpecularHighlight(
   context: CanvasRenderingContext2D,
@@ -546,7 +680,8 @@ function drawSpecularHighlight(
   centerX: number,
   centerY: number,
   faceSize: number,
-  tilt: number,
+  tiltX: number,
+  tiltY: number,
   phase: number | null,
 ) {
   context.save()
@@ -555,9 +690,9 @@ function drawSpecularHighlight(
   context.translate(centerX, centerY)
   context.globalCompositeOperation = 'screen'
 
-  const hx = -faceSize * 0.1 + tilt * faceSize * 0.35
-  const hy = -faceSize * 0.15 + Math.abs(tilt) * faceSize * 0.08
-  const strength = phase == null ? 0.22 : 0.18 + 0.16 * Math.abs(tilt)
+  const hx = -faceSize * 0.12 + tiltX * faceSize * 0.32
+  const hy = -faceSize * 0.14 + tiltY * faceSize * 0.32
+  const strength = phase == null ? 0.22 : 0.18 + 0.16 * Math.hypot(tiltX, tiltY)
 
   const highlight = context.createRadialGradient(hx, hy, 0, hx, hy, faceSize * 0.42)
   highlight.addColorStop(0, `rgba(255, 255, 255, ${strength})`)
@@ -575,7 +710,8 @@ function drawRainbowHolo(
   centerX: number,
   centerY: number,
   faceSize: number,
-  tilt: number,
+  tiltX: number,
+  tiltY: number,
   phase: number | null,
 ) {
   context.save()
@@ -583,15 +719,20 @@ function drawRainbowHolo(
   context.clip()
   context.translate(centerX, centerY)
 
-  const baseAngle = -0.52 + tilt * 0.18
+  const p = phase ?? 0.8
+  const baseAngle = -0.52 + Math.sin(p) * 0.35
   context.rotate(baseAngle)
 
-  // Continuous spectral diffraction grating: multi-stop rainbow bands
-  const period = faceSize * 0.65
-  const offset = tilt * faceSize * 0.8 + (phase ? phase * faceSize * 0.1 : 0)
-  const grad = context.createLinearGradient(-faceSize + offset, 0, faceSize + offset, 0)
+  // Continuous spectral diffraction grating: multi-stop smooth rainbow bands
+  const period = faceSize * 0.62
+  const offset = (tiltX * 0.75 + tiltY * 0.45) * faceSize
+  const grad = context.createLinearGradient(
+    -faceSize * 1.5 + offset,
+    0,
+    faceSize * 1.5 + offset,
+    0,
+  )
 
-  // Vibrant spectral sequence
   const stops = [
     { pos: 0.0, col: 'hsla(0, 90%, 65%, 0.45)' }, // Red
     { pos: 0.14, col: 'hsla(45, 95%, 60%, 0.45)' }, // Orange/Yellow
@@ -603,29 +744,29 @@ function drawRainbowHolo(
     { pos: 1.0, col: 'hsla(360, 90%, 65%, 0.45)' }, // Red
   ]
 
-  for (let rep = -2; rep <= 2; rep++) {
+  for (let rep = -3; rep <= 3; rep++) {
     for (const s of stops) {
-      const p = (s.pos * period + rep * period + faceSize * 2) / (faceSize * 4)
-      if (p >= 0 && p <= 1) {
-        grad.addColorStop(p, s.col)
+      const pNorm = (s.pos * period + rep * period + faceSize * 2.5) / (faceSize * 5)
+      if (pNorm >= 0 && pNorm <= 1) {
+        grad.addColorStop(pNorm, s.col)
       }
     }
   }
 
-  // Layer 1: Overlay for vibrant chromatic saturation
+  // Layer 1: Overlay for rich prismatic chromatic saturation
   context.globalCompositeOperation = 'overlay'
-  context.globalAlpha = 0.48
+  context.globalAlpha = 0.5
   context.fillStyle = grad
   context.fillRect(-faceSize * 2, -faceSize * 2, faceSize * 4, faceSize * 4)
 
   // Layer 2: Screen for iridescent luminosity
   context.globalCompositeOperation = 'screen'
-  context.globalAlpha = 0.22
+  context.globalAlpha = 0.24
   context.fillStyle = grad
   context.fillRect(-faceSize * 2, -faceSize * 2, faceSize * 4, faceSize * 4)
 
   // Specular hotspot
-  drawSpecularHighlight(context, shape, 0, 0, faceSize, tilt, phase)
+  drawSpecularHighlight(context, shape, 0, 0, faceSize, tiltX, tiltY, phase)
   context.restore()
 }
 
@@ -649,7 +790,6 @@ function getCrackedIceShards(size: number): CrackedIceShard[] {
   const cellW = size / cols
   const cellH = size / rows
 
-  // Jittered grid vertices
   const grid: Array<Array<{ x: number; y: number }>> = []
   for (let r = 0; r <= rows; r++) {
     grid[r] = []
@@ -663,7 +803,6 @@ function getCrackedIceShards(size: number): CrackedIceShard[] {
     }
   }
 
-  // Create triangular crystal shards from grid cells
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const p00 = grid[r][c]
@@ -698,7 +837,8 @@ function drawCrackedIceHolo(
   centerX: number,
   centerY: number,
   faceSize: number,
-  tilt: number,
+  tiltX: number,
+  tiltY: number,
   phase: number | null,
 ) {
   context.save()
@@ -707,14 +847,20 @@ function drawCrackedIceHolo(
   context.translate(centerX, centerY)
 
   const shards = getCrackedIceShards(faceSize)
-  const lightAngle = tilt * Math.PI * 0.75 - Math.PI / 4
+  const lightAngle = Math.atan2(tiltY, tiltX) - Math.PI / 4
+  const tiltMagnitude = Math.hypot(tiltX, tiltY)
 
   // Render individual crystal facet reflections
   context.globalCompositeOperation = 'overlay'
   for (const shard of shards) {
     const diff = Math.cos(shard.normalAngle - lightAngle)
-    const intensity = Math.max(0, diff) ** 2
-    const hue = (shard.baseHue + tilt * 140 + (phase ? phase * 40 : 0) + 360) % 360
+    const intensity = Math.max(0, diff) ** 2.2
+    const hue =
+      (shard.baseHue +
+        (tiltX + tiltY) * 120 +
+        (phase ? phase * 45 : 0) +
+        360) %
+      360
 
     context.beginPath()
     context.moveTo(shard.points[0].x, shard.points[0].y)
@@ -723,27 +869,28 @@ function drawCrackedIceHolo(
     context.closePath()
 
     // Shard facet color
-    context.fillStyle = `hsla(${hue}, 85%, 62%, ${0.25 + 0.45 * intensity})`
+    context.fillStyle = `hsla(${hue}, 85%, 62%, ${0.25 + 0.5 * intensity * (0.4 + 0.6 * tiltMagnitude)})`
     context.fill()
 
     // Sharp holographic crack border
-    context.strokeStyle = `hsla(${hue}, 90%, 85%, ${0.4 + 0.5 * intensity})`
+    context.strokeStyle = `hsla(${hue}, 90%, 85%, ${0.45 + 0.55 * intensity})`
     context.lineWidth = 1.0
     context.stroke()
   }
 
-  // Soft specular sheen on top
-  drawSpecularHighlight(context, shape, 0, 0, faceSize, tilt, phase)
+  drawSpecularHighlight(context, shape, 0, 0, faceSize, tiltX, tiltY, phase)
   context.restore()
 }
 
-function drawLatticeHolo(
+// Cross Star Hologram Film (十字星芒膜)
+function drawCrossHolo(
   context: CanvasRenderingContext2D,
   shape: BadgeShape,
   centerX: number,
   centerY: number,
   faceSize: number,
-  tilt: number,
+  tiltX: number,
+  tiltY: number,
   phase: number | null,
 ) {
   context.save()
@@ -751,47 +898,49 @@ function drawLatticeHolo(
   context.clip()
   context.translate(centerX, centerY)
 
-  const cellSize = faceSize * 0.055
+  const spacing = faceSize * 0.08
   const half = faceSize / 2
-  const cols = Math.ceil(faceSize / cellSize)
-  const rows = Math.ceil(faceSize / cellSize)
+  const count = Math.ceil(faceSize / spacing)
 
-  context.globalCompositeOperation = 'overlay'
+  context.globalCompositeOperation = 'screen'
 
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const x = -half + c * cellSize
-      const y = -half + r * cellSize
-      const parity = (r + c) % 2
+  for (let r = 0; r <= count; r++) {
+    for (let c = 0; c <= count; c++) {
+      const x = -half + c * spacing + (r % 2 === 0 ? 0 : spacing * 0.5)
+      const y = -half + r * spacing
+      if (Math.hypot(x, y) > faceSize * 0.5) continue
 
-      const baseHue = (c * 18 + r * 14 + tilt * 110 + 360) % 360
-      const facetHue = parity === 0 ? baseHue : (baseHue + 180) % 360
-      const intensity = parity === 0 ? 0.35 + 0.35 * Math.sin(tilt * 3 + c * 0.3) : 0.35 + 0.35 * Math.cos(tilt * 3 + r * 0.3)
+      const dist = Math.hypot(x - tiltX * faceSize * 0.35, y - tiltY * faceSize * 0.35)
+      const align = Math.max(0, 1 - dist / (faceSize * 0.45))
+      const p = phase ?? 0.8
+      const flare = Math.sin(p * 2 + (c * 3 + r * 2)) ** 4
+      const alpha = (0.2 + 0.8 * align) * (0.35 + 0.65 * flare)
+      if (alpha < 0.08) continue
 
-      context.fillStyle = `hsla(${facetHue}, 85%, 65%, ${intensity})`
-      context.fillRect(x, y, cellSize - 1, cellSize - 1)
+      const hue = (c * 24 + r * 20 + (tiltX + tiltY) * 90 + 360) % 360
+      const starRadius = spacing * 0.35 * (0.8 + 0.4 * alpha)
+
+      // Cross Star with Rainbow Flare
+      context.save()
+      context.translate(x, y)
+      context.globalAlpha = alpha * 0.85
+      context.fillStyle = `hsl(${hue}, 90%, 75%)`
+
+      // Core dot
+      context.beginPath()
+      context.arc(0, 0, starRadius * 0.25, 0, Math.PI * 2)
+      context.fill()
+
+      // Horizontal ray
+      context.fillRect(-starRadius, -starRadius * 0.1, starRadius * 2, starRadius * 0.2)
+      // Vertical ray
+      context.fillRect(-starRadius * 0.1, -starRadius, starRadius * 0.2, starRadius * 2)
+
+      context.restore()
     }
   }
 
-  // Thin lattice seam grid
-  context.strokeStyle = 'rgba(255, 255, 255, 0.25)'
-  context.lineWidth = 0.75
-  for (let c = 0; c <= cols; c++) {
-    const x = -half + c * cellSize
-    context.beginPath()
-    context.moveTo(x, -half)
-    context.lineTo(x, half)
-    context.stroke()
-  }
-  for (let r = 0; r <= rows; r++) {
-    const y = -half + r * cellSize
-    context.beginPath()
-    context.moveTo(-half, y)
-    context.lineTo(half, y)
-    context.stroke()
-  }
-
-  drawSpecularHighlight(context, shape, 0, 0, faceSize, tilt, phase)
+  drawSpecularHighlight(context, shape, 0, 0, faceSize, tiltX, tiltY, phase)
   context.restore()
 }
 
@@ -802,15 +951,16 @@ function drawHoloFilm(
   centerX: number,
   centerY: number,
   faceSize: number,
-  tilt: number,
+  tiltX: number,
+  tiltY: number,
   phase: number | null,
 ) {
   if (craft === 'rainbow') {
-    drawRainbowHolo(context, shape, centerX, centerY, faceSize, tilt, phase)
+    drawRainbowHolo(context, shape, centerX, centerY, faceSize, tiltX, tiltY, phase)
   } else if (craft === 'cracked-ice') {
-    drawCrackedIceHolo(context, shape, centerX, centerY, faceSize, tilt, phase)
-  } else if (craft === 'lattice') {
-    drawLatticeHolo(context, shape, centerX, centerY, faceSize, tilt, phase)
+    drawCrackedIceHolo(context, shape, centerX, centerY, faceSize, tiltX, tiltY, phase)
+  } else if (craft === 'cross') {
+    drawCrossHolo(context, shape, centerX, centerY, faceSize, tiltX, tiltY, phase)
   }
 }
 
@@ -824,15 +974,16 @@ function drawPhysicalBadgeShading(
   centerX: number,
   centerY: number,
   faceSize: number,
-  tilt: number,
+  tiltX: number,
+  tiltY: number,
 ) {
   context.save()
   shapePath(context, shape, centerX, centerY, faceSize)
   context.clip()
 
   // 1. Subtle Convex Dome Ambient Light (马口铁微凸穹顶环境光)
-  const domeLightX = centerX - faceSize * 0.15 + tilt * faceSize * 0.2
-  const domeLightY = centerY - faceSize * 0.2
+  const domeLightX = centerX - faceSize * 0.15 + tiltX * faceSize * 0.2
+  const domeLightY = centerY - faceSize * 0.2 + tiltY * faceSize * 0.2
   const domeGrad = context.createRadialGradient(
     domeLightX,
     domeLightY,
@@ -904,8 +1055,8 @@ function drawPhysicalBadgeShading(
   context.lineWidth = Math.max(1.5, faceSize * 0.005)
   if (shape === 'round') {
     const rimGrad = context.createLinearGradient(
-      centerX - faceSize * 0.4,
-      centerY - faceSize * 0.4,
+      centerX - faceSize * 0.4 + tiltX * faceSize * 0.2,
+      centerY - faceSize * 0.4 + tiltY * faceSize * 0.2,
       centerX + faceSize * 0.4,
       centerY + faceSize * 0.4,
     )
@@ -949,7 +1100,8 @@ function drawBadgeFace(
   faceSize: number,
   artworkSize: number,
   canvasSize: number,
-  tilt: number,
+  tiltX: number,
+  tiltY: number,
   phase: number | null,
 ) {
   context.save()
@@ -959,39 +1111,72 @@ function drawBadgeFace(
   // Layer 1: Base User Artwork
   drawMappedArtwork(context, state, centerX, centerY, artworkSize, canvasSize)
 
-  // Layer 2: Base Craft Layer (Glitter / Pearl)
-  if (state.baseCraft === 'silver-glitter' || state.baseCraft === 'gold-glitter') {
-    drawGlitterBase(context, state.shape, centerX, centerY, faceSize, tilt, phase, state.baseCraft)
+  // Layer 2: Base Craft Layer (Glitter / Pearl / Sand / Brushed / Fine Silver)
+  if (
+    state.baseCraft === 'fine-silver' ||
+    state.baseCraft === 'silver-glitter' ||
+    state.baseCraft === 'gold-glitter' ||
+    state.baseCraft === 'brushed-silver' ||
+    state.baseCraft === 'sand-glitter'
+  ) {
+    drawGlitterBase(
+      context,
+      state.shape,
+      centerX,
+      centerY,
+      faceSize,
+      tiltX,
+      tiltY,
+      phase,
+      state.baseCraft,
+    )
   } else if (state.baseCraft === 'pearl') {
-    drawPearlBase(context, state.shape, centerX, centerY, faceSize, tilt, phase)
+    drawPearlBase(context, state.shape, centerX, centerY, faceSize, tiltX, tiltY, phase)
   }
 
-  // Layer 3: Film Craft Layer (Glossy / Matte / Rainbow / Cracked-Ice / Lattice)
+  // Layer 3: Film Craft Layer (Glossy / Matte / Rainbow / Cracked-Ice / Cross / Water)
   if (state.filmCraft === 'glossy') {
-    drawGlossyFilm(context, state.shape, centerX, centerY, faceSize, tilt, phase)
+    drawGlossyFilm(context, state.shape, centerX, centerY, faceSize, tiltX, tiltY, phase)
   } else if (state.filmCraft === 'matte') {
     drawMatteFilm(context, state.shape, centerX, centerY, faceSize)
   } else if (
     state.filmCraft === 'rainbow' ||
     state.filmCraft === 'cracked-ice' ||
-    state.filmCraft === 'lattice'
+    state.filmCraft === 'cross'
   ) {
-    drawHoloFilm(context, state.filmCraft, state.shape, centerX, centerY, faceSize, tilt, phase)
+    drawHoloFilm(
+      context,
+      state.filmCraft,
+      state.shape,
+      centerX,
+      centerY,
+      faceSize,
+      tiltX,
+      tiltY,
+      phase,
+    )
   }
 
   // Layer 4: Double-Glitter Top Accents (Star Sparkles Piercing Film Layer)
-  if (state.baseCraft === 'silver-glitter' || state.baseCraft === 'gold-glitter') {
+  if (
+    state.baseCraft === 'fine-silver' ||
+    state.baseCraft === 'silver-glitter' ||
+    state.baseCraft === 'gold-glitter' ||
+    state.baseCraft === 'brushed-silver' ||
+    state.baseCraft === 'sand-glitter'
+  ) {
     const isHolo =
       state.filmCraft === 'rainbow' ||
       state.filmCraft === 'cracked-ice' ||
-      state.filmCraft === 'lattice'
+      state.filmCraft === 'cross'
     drawGlitterAccents(
       context,
       state.shape,
       centerX,
       centerY,
       faceSize,
-      tilt,
+      tiltX,
+      tiltY,
       phase,
       state.baseCraft,
       isHolo,
@@ -999,7 +1184,7 @@ function drawBadgeFace(
   }
 
   // Layer 5: 3D Convex Dome Ambient Light & Edge Bevel Wrap
-  drawPhysicalBadgeShading(context, state.shape, centerX, centerY, faceSize, tilt)
+  drawPhysicalBadgeShading(context, state.shape, centerX, centerY, faceSize, tiltX, tiltY)
 
   context.restore()
 }
@@ -1012,8 +1197,9 @@ function drawPreviewScene(
   context: CanvasRenderingContext2D,
   size: number,
   state: RenderState,
-  tilt: number,
-  phase: number | null,
+  tiltX = 0,
+  tiltY = 0,
+  phase: number | null = null,
 ) {
   const center = size / 2
   const faceSize = size * previewDiameterRatio(state.finishedDiameterMm)
@@ -1038,19 +1224,18 @@ function drawPreviewScene(
   }
   context.restore()
 
-  // Tilting transforms
-  const tiltAngle = tilt * 0.08
-  const tiltOffsetX = tilt * faceSize * 0.035
-  const tiltY = Math.sqrt(Math.max(0, 1 - tilt * tilt))
-  const tiltOffsetY = tiltY * faceSize * 0.015
+  // Tilting transforms in 2D
+  const tiltAngle = tiltX * 0.06 - tiltY * 0.03
+  const tiltOffsetX = tiltX * faceSize * 0.035
+  const tiltOffsetY = (0.015 + tiltY * 0.025) * faceSize
 
   // Layer 1: Ambient Diffuse Drop Shadow
   context.save()
   context.translate(center + tiltOffsetX * 1.2, center + tiltOffsetY + faceSize * 0.035)
   context.rotate(tiltAngle)
   context.shadowColor = 'rgba(18, 22, 32, 0.18)'
-  context.shadowBlur = faceSize * (0.09 + Math.abs(tilt) * 0.04)
-  context.shadowOffsetY = faceSize * (0.045 + Math.abs(tilt) * 0.02)
+  context.shadowBlur = faceSize * (0.09 + Math.hypot(tiltX, tiltY) * 0.04)
+  context.shadowOffsetY = faceSize * (0.045 + Math.hypot(tiltX, tiltY) * 0.02)
   shapePath(context, state.shape, 0, 0, faceSize)
   context.fillStyle = 'rgba(0, 0, 0, 0.01)'
   context.fill()
@@ -1072,7 +1257,7 @@ function drawPreviewScene(
   context.save()
   context.translate(center + tiltOffsetX, center + tiltOffsetY)
   context.rotate(tiltAngle)
-  drawBadgeFace(context, state, 0, 0, faceSize, artworkSize, size, tilt, phase)
+  drawBadgeFace(context, state, 0, 0, faceSize, artworkSize, size, tiltX, tiltY, phase)
   context.restore()
 }
 
@@ -1157,7 +1342,8 @@ export function renderWorkspace(
   canvas: HTMLCanvasElement,
   state: RenderState,
   view: ViewMode,
-  tilt = 0,
+  tiltX = 0,
+  tiltY = 0,
   phase: number | null = null,
 ) {
   if (canvas.width !== DISPLAY_SIZE || canvas.height !== DISPLAY_SIZE) {
@@ -1168,7 +1354,7 @@ export function renderWorkspace(
   const context = getContext(canvas)
   context.clearRect(0, 0, DISPLAY_SIZE, DISPLAY_SIZE)
   if (view === 'preview') {
-    drawPreviewScene(context, DISPLAY_SIZE, state, tilt, phase)
+    drawPreviewScene(context, DISPLAY_SIZE, state, tiltX, tiltY, phase)
   } else {
     drawPrintWorkspace(context, DISPLAY_SIZE, state)
   }
@@ -1179,7 +1365,7 @@ export function createPreviewExport(state: RenderState) {
   canvas.width = PREVIEW_EXPORT_SIZE
   canvas.height = PREVIEW_EXPORT_SIZE
   // Export at natural resting studio lighting angle
-  drawPreviewScene(getContext(canvas), PREVIEW_EXPORT_SIZE, state, 0.15, 0.8)
+  drawPreviewScene(getContext(canvas), PREVIEW_EXPORT_SIZE, state, 0.15, 0.1, 0.8)
   return canvas
 }
 

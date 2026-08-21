@@ -26,11 +26,14 @@ React 19 + Vite + TypeScript
 使用一份状态驱动成品预览、完整图片范围和导出:
 
 ```ts
+type BaseCraft = 'none' | 'fine-silver' | 'silver-glitter' | 'brushed-silver' | 'sand-glitter' | 'gold-glitter' | 'pearl'
+type FilmCraft = 'none' | 'glossy' | 'matte' | 'rainbow' | 'cracked-ice' | 'cross'
+
 type RenderState = {
   artwork: Artwork
   transform: Transform
-  baseCraft: 'none' | 'silver-glitter' | 'gold-glitter' | 'pearl'
-  filmCraft: 'none' | 'glossy' | 'matte' | 'rainbow' | 'cracked-ice' | 'lattice'
+  baseCraft: BaseCraft
+  filmCraft: FilmCraft
   shape: 'round' | 'square'
   finishedDiameterMm: number
   printDiameterMm: number
@@ -39,9 +42,9 @@ type RenderState = {
 ```
 
 - `shape` 决定圆形或圆角方形的预览、参考线和导出裁切.
-- `baseCraft` 控制闪底层: 无闪底、银闪(细密金属晶片+十字星芒)、金闪(香槟金箔微粒)或珠光(粉青双色偏光).
-- `filmCraft` 控制覆膜层: 无膜、亮膜(微弧面双反光带)、哑光(消光微磨砂)、素面镭射(连续彩虹色散)、碎冰镭射(多面水晶晶格)或方格镭射(全息棋盘光栅).
-- 两层独立组合, 银闪/金闪 + 镭射覆膜 = 双闪.
+- `baseCraft` 控制闪底层 (7 款): 无闪底、细银闪(细密微晶)、银葱(六边形大反光亮片)、拉丝银葱(金属拉丝)、幻彩白沙(细沙偏光)、细金闪(金葱)或珠光底(贝母纸).
+- `filmCraft` 控制覆膜层 (6 款): 无膜、高透亮膜、丝绒哑膜、素面镭射(连续彩虹色散)、碎玻璃镭射(多面水晶晶格)或十字星芒膜.
+- 两层独立组合, 闪底 + 镭射覆膜 = 双闪.
 - 三个尺寸值按当前形状分别表示直径或边长.
 - 这三个值由用户选择的常用尺寸预设自动带入, 不要求用户填写商家参数.
 - 偏移量保存为相对完整图片画布的归一化值.

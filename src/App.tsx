@@ -5,7 +5,9 @@ import {
   FileOutput,
   Gem,
   ImagePlus,
+  Lock,
   LockKeyhole,
+  Maximize2,
   Pause,
   Play,
   RotateCcw,
@@ -14,12 +16,15 @@ import {
   Sparkles,
   Sun,
   Trash2,
+  Unlock,
+  X,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react'
 import {
   type ChangeEvent,
   type DragEvent,
   type PointerEvent,
-  type WheelEvent,
   useEffect,
   useMemo,
   useRef,
@@ -30,10 +35,10 @@ import {
   createDemoArtwork,
   createPreviewExport,
   createPrintExport,
- downloadCanvas,
- loadArtwork,
+  downloadCanvas,
+  loadArtwork,
   preloadTextures,
- renderWorkspace,
+  renderWorkspace,
   validateArtworkFile,
   type BaseCraft,
   type FilmCraft,
@@ -46,6 +51,7 @@ import {
   DEFAULT_TRANSFORM,
   DEFAULT_BADGE_PRESET,
   OUTPUT_DPI,
+  clamp,
   constrainTransform,
   mmToPixels,
   previewDiameterRatio,
@@ -54,10 +60,6 @@ import {
 } from './geometry.ts'
 
 type Point = { x: number; y: number }
-
-function distance(a: Point, b: Point) {
-  return Math.hypot(a.x - b.x, a.y - b.y)
-}
 
 function useReducedMotion() {
   const [reduced, setReduced] = useState(false)
@@ -80,27 +82,28 @@ export default function App() {
   const gesture = useRef({
     lastX: 0,
     lastY: 0,
-    pinchDistance: 0,
-    pinchZoom: 1,
   })
+
   const reducedMotion = useReducedMotion()
   const demoArtwork = useMemo(() => createDemoArtwork(), [])
- const [editor, setEditor] = useState<RenderState>(() => ({
-   artwork: demoArtwork,
-   transform: DEFAULT_TRANSFORM,
-   baseCraft: 'none',
-   filmCraft: 'rainbow',
-   shape: 'round',
-   finishedDiameterMm: DEFAULT_BADGE_PRESET.finishedDiameterMm,
-   printDiameterMm: DEFAULT_BADGE_PRESET.printDiameterMm,
-   safeDiameterMm: DEFAULT_BADGE_PRESET.safeDiameterMm,
- }))
+  const [editor, setEditor] = useState<RenderState>(() => ({
+    artwork: demoArtwork,
+    transform: DEFAULT_TRANSFORM,
+    baseCraft: 'fine-silver',
+    filmCraft: 'cracked-ice',
+    shape: 'round',
+    finishedDiameterMm: DEFAULT_BADGE_PRESET.finishedDiameterMm,
+    printDiameterMm: DEFAULT_BADGE_PRESET.printDiameterMm,
+    safeDiameterMm: DEFAULT_BADGE_PRESET.safeDiameterMm,
+  }))
   const [view, setView] = useState<ViewMode>('preview')
   const [animate, setAnimate] = useState(false)
+  const [isLocked, setIsLocked] = useState(false)
+  const [viewportZoom, setViewportZoom] = useState(1.0)
   const [draggingFile, setDraggingFile] = useState(false)
   const [loading, setLoading] = useState(false)
   const [confirmPrint, setConfirmPrint] = useState(false)
-  const [message, setMessage] = useState('默认样稿已就绪, 上传图片即可替换.')
+  const [message, setMessage] = useState('默认样稿已就绪，已预置【细银闪 + 碎玻璃镭射】双闪工艺。')
   const [isError, setIsError] = useState(false)
 
   const printPixels = mmToPixels(editor.printDiameterMm)
@@ -110,37 +113,60 @@ export default function App() {
   )?.id
   const activeShape = BADGE_SHAPES.find((shape) => shape.id === editor.shape)
     ?? BADGE_SHAPES[0]
- const visibleSizeLabel = editor.shape === 'round'
-   ? '成品可见直径'
-   : editor.shape === 'square'
-     ? '成品可见边长'
-     : '成品最大宽度'
-const artworkSizeLabel = editor.shape === 'round'
-  ? '完整图片直径'
-  : '完整图片边长'
+  const visibleSizeLabel = editor.shape === 'round'
+    ? '成品可见直径'
+    : editor.shape === 'square'
+      ? '成品可见边长'
+      : '成品最大宽度'
+  const artworkSizeLabel = editor.shape === 'round'
+    ? '完整图片直径'
+    : '完整图片边长'
 
-
- useEffect(() => {
+  useEffect(() => {
     preloadTextures()
   }, [])
 
- useEffect(() => {
+  // Animation Loop: Continuous 360° Circular Hand-held Showcase Orbit
+  useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     let animationFrame = 0
     const shouldAnimate = animate && !reducedMotion
 
     const draw = (time: number) => {
-      // Circular wobble: like swirling a glass, the badge tilts in a circle.
-      const phase = shouldAnimate ? ((time % 3600) / 3600) * Math.PI * 2 : 0
-      const t = shouldAnimate ? Math.sin(phase) : 0
-      renderWorkspace(canvas, editor, view, t, shouldAnimate ? phase : null)
-      if (shouldAnimate) animationFrame = requestAnimationFrame(draw)
+      if (shouldAnimate) {
+        // Continuous smooth 360° orbital tilt mimicking a person turning the badge in light
+        const speed = 0.0015
+        const angle = time * speed
+        const tiltX = Math.cos(angle) * 0.75
+        const tiltY = Math.sin(angle) * 0.65
+        const phase = (angle % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2)
+        renderWorkspace(canvas, editor, view, tiltX, tiltY, phase)
+        animationFrame = requestAnimationFrame(draw)
+      } else {
+        // Clean, stable studio lighting angle
+        renderWorkspace(canvas, editor, view, 0.15, 0.1, 0.8)
+      }
     }
 
-    draw(performance.now())
+    if (shouldAnimate) {
+      animationFrame = requestAnimationFrame(draw)
+    } else {
+      draw(performance.now())
+    }
+
     return () => cancelAnimationFrame(animationFrame)
   }, [editor, animate, reducedMotion, view])
+
+  // Global Escape key listener to close modal
+  useEffect(() => {
+    if (!confirmPrint) return
+    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') setConfirmPrint(false)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [confirmPrint])
 
   function updateTransform(change: (current: Transform) => Transform) {
     setEditor((current) => ({
@@ -159,8 +185,8 @@ const artworkSizeLabel = editor.shape === 'round'
     }
 
     setLoading(true)
+    setMessage('正在载入图片...')
     setIsError(false)
-    setMessage('正在处理图片...')
     try {
       const artwork = await loadArtwork(file)
       setEditor((current) => ({
@@ -168,98 +194,80 @@ const artworkSizeLabel = editor.shape === 'round'
         artwork,
         transform: DEFAULT_TRANSFORM,
       }))
-      setMessage(`${file.name} 已载入, 图片仍保留在本地.`)
+      setMessage(`${file.name} 载入成功, 可拖拽移动排版.`)
+      setIsError(false)
     } catch {
-      setMessage('图片解码失败, 请换用 JPG、PNG 或 WebP 文件.')
+      setMessage('图片载入失败, 请重试或选择其他图片.')
       setIsError(true)
     } finally {
       setLoading(false)
-      if (inputRef.current) inputRef.current.value = ''
     }
   }
 
   function handleFileInput(event: ChangeEvent<HTMLInputElement>) {
     void acceptFile(event.target.files?.[0])
+    event.target.value = ''
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault()
     setDraggingFile(false)
-    void acceptFile(event.dataTransfer.files[0])
+    void acceptFile(event.dataTransfer.files?.[0])
   }
 
   function pointerDown(event: PointerEvent<HTMLCanvasElement>) {
-    event.currentTarget.setPointerCapture(event.pointerId)
-    const point = { x: event.clientX, y: event.clientY }
-    pointers.current.set(event.pointerId, point)
+    if (isLocked) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    canvas.setPointerCapture(event.pointerId)
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
 
     if (pointers.current.size === 1) {
-      gesture.current.lastX = point.x
-      gesture.current.lastY = point.y
-    } else if (pointers.current.size === 2) {
-      const [a, b] = [...pointers.current.values()]
-      gesture.current.pinchDistance = distance(a, b)
-      gesture.current.pinchZoom = editor.transform.zoom
+      gesture.current.lastX = event.clientX
+      gesture.current.lastY = event.clientY
     }
   }
 
   function pointerMove(event: PointerEvent<HTMLCanvasElement>) {
-    if (!pointers.current.has(event.pointerId)) return
-    const point = { x: event.clientX, y: event.clientY }
-    pointers.current.set(event.pointerId, point)
-
-    if (pointers.current.size >= 2) {
-      const [a, b] = [...pointers.current.values()]
-      const currentDistance = distance(a, b)
-      if (gesture.current.pinchDistance > 0) {
-        const zoom =
-          gesture.current.pinchZoom *
-          (currentDistance / gesture.current.pinchDistance)
-        updateTransform((current) => ({ ...current, zoom }))
-      }
-      return
-    }
-
+    if (isLocked || !pointers.current.has(event.pointerId)) return
     const canvas = canvasRef.current
     if (!canvas) return
-    const logicalScale = canvas.width / canvas.clientWidth
-    const logicalDx = (point.x - gesture.current.lastX) * logicalScale
-    const logicalDy = (point.y - gesture.current.lastY) * logicalScale
-    // Normalize drag offset to canvas size so image position stays
-    // consistent when switching between preview and print views.
-    const printDiameter = DISPLAY_SIZE
 
-    gesture.current.lastX = point.x
-    gesture.current.lastY = point.y
-    updateTransform((current) => ({
-      ...current,
-      offsetX: current.offsetX + logicalDx / printDiameter,
-      offsetY: current.offsetY + logicalDy / printDiameter,
-    }))
+    const rect = canvas.getBoundingClientRect()
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+
+    // Single pointer dragging strictly adjusts position only (no pinch zoom in canvas)
+    if (pointers.current.size === 1) {
+      const deltaX = (event.clientX - gesture.current.lastX) / rect.width
+      const deltaY = (event.clientY - gesture.current.lastY) / rect.height
+      gesture.current.lastX = event.clientX
+      gesture.current.lastY = event.clientY
+
+      updateTransform((current) => ({
+        ...current,
+        offsetX: current.offsetX + deltaX,
+        offsetY: current.offsetY + deltaY,
+      }))
+    }
   }
 
   function pointerUp(event: PointerEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current
+    if (canvas && canvas.hasPointerCapture(event.pointerId)) {
+      canvas.releasePointerCapture(event.pointerId)
+    }
     pointers.current.delete(event.pointerId)
     if (pointers.current.size === 1) {
-      const [point] = pointers.current.values()
-      gesture.current.lastX = point.x
-      gesture.current.lastY = point.y
+      const [remaining] = Array.from(pointers.current.values())
+      gesture.current.lastX = remaining.x
+      gesture.current.lastY = remaining.y
     }
-    gesture.current.pinchDistance = 0
-  }
-
-  function handleWheel(event: WheelEvent<HTMLCanvasElement>) {
-    event.preventDefault()
-    const factor = Math.exp(-event.deltaY * 0.0012)
-    updateTransform((current) => ({
-      ...current,
-      zoom: current.zoom * factor,
-    }))
   }
 
   function handleCanvasKeyDown(event: React.KeyboardEvent<HTMLCanvasElement>) {
+    if (isLocked) return
     const movement = 0.015
-    const keys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', '+', '=','-']
+    const keys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']
     if (!keys.includes(event.key)) return
     event.preventDefault()
     updateTransform((current) => {
@@ -275,10 +283,7 @@ const artworkSizeLabel = editor.shape === 'round'
       if (event.key === 'ArrowRight') {
         return { ...current, offsetX: current.offsetX + movement }
       }
-      return {
-        ...current,
-        zoom: current.zoom * (event.key === '-' ? 0.95 : 1.05),
-      }
+      return current
     })
   }
 
@@ -309,24 +314,29 @@ const artworkSizeLabel = editor.shape === 'round'
     setEditor((current) => ({ ...current, filmCraft }))
   }
 
- const baseCraftLabelMap: Record<BaseCraft, string | null> = {
-    'none': null,
-    'silver-glitter': '银闪',
-    'gold-glitter': '金闪',
-    'pearl': '珠光',
+  const baseCraftLabelMap: Record<BaseCraft, string | null> = {
+    none: null,
+    'fine-silver': '细银闪',
+    'silver-glitter': '银葱',
+    'brushed-silver': '拉丝银葱',
+    'sand-glitter': '幻彩白沙',
+    'gold-glitter': '细金闪',
+    pearl: '珠光底',
   }
+
   const filmCraftLabelMap: Record<FilmCraft, string | null> = {
-    'none': null,
-    'glossy': '亮膜',
-    'matte': '哑光',
-    'rainbow': '素面镭射',
-    'cracked-ice': '碎冰镭射',
-    'lattice': '方格镭射',
+    none: null,
+    glossy: '亮膜',
+    matte: '丝绒哑膜',
+    rainbow: '素面镭射',
+    'cracked-ice': '碎玻璃镭射',
+    cross: '十字星芒',
   }
-  const craftLabel = [
-    baseCraftLabelMap[editor.baseCraft],
-    filmCraftLabelMap[editor.filmCraft],
-  ].filter(Boolean).join('+') || '无工艺'
+
+  const craftLabel =
+    [baseCraftLabelMap[editor.baseCraft], filmCraftLabelMap[editor.filmCraft]]
+      .filter(Boolean)
+      .join('+') || '无工艺'
 
   async function exportPreview() {
     try {
@@ -347,7 +357,9 @@ const artworkSizeLabel = editor.shape === 'round'
     try {
       const filename = `guzitools-badge-${editor.shape}-${editor.finishedDiameterMm}mm-${craftLabel}-artwork-${editor.printDiameterMm}mm-${OUTPUT_DPI}dpi.png`
       await downloadCanvas(createPrintExport(editor), filename, OUTPUT_DPI)
-      setMessage(`${printPixels}x${printPixels}px 制作原图已导出, 包含${wrapMarginMm}mm包边区.`)
+      setMessage(
+        `${printPixels}x${printPixels}px 制作原图已导出, 包含${wrapMarginMm}mm包边区.`,
+      )
       setIsError(false)
     } catch {
       setMessage('制作稿导出失败, 请重试或缩小展开尺寸.')
@@ -384,7 +396,9 @@ const artworkSizeLabel = editor.shape === 'round'
     <div className="app-shell">
       <header className="topbar">
         <div className="brand">
-          <span className="brand-mark" aria-hidden="true">G</span>
+          <span className="brand-mark" aria-hidden="true">
+            G
+          </span>
           <div>
             <strong>谷子Tools</strong>
             <span>吧唧打样台</span>
@@ -432,29 +446,107 @@ const artworkSizeLabel = editor.shape === 'round'
                 包边预览
               </button>
             </div>
-            <button
-              type="button"
-              className="icon-button"
-              onClick={() => setAnimate((current) => !current)}
-              aria-label={animate ? '停止动态预览' : '开始动态预览'}
-              title={animate ? '停止动态预览' : '开始动态预览'}
-            >
-              {animate ? <Pause size={18} /> : <Play size={18} />}
-            </button>
+
+            <div className="stage-actions">
+              {/* 视口缩放比例尺 - 风格与页面设计统一，放在顶部栏不再挡住吧唧 */}
+              <div className="viewport-zoom-group" aria-label="视口缩放比例尺">
+                <button
+                  type="button"
+                  onClick={() => setViewportZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))}
+                  title="缩小视口"
+                  aria-label="缩小视口"
+                >
+                  <ZoomOut size={15} />
+                </button>
+                <button
+                  type="button"
+                  className="zoom-readout-btn"
+                  onClick={() => setViewportZoom(1.0)}
+                  title="点击重置为 100%"
+                  aria-label="重置缩放为 100%"
+                >
+                  {Math.round(viewportZoom * 100)}%
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewportZoom((z) => Math.min(2.5, +(z + 0.25).toFixed(2)))}
+                  title="放大视口"
+                  aria-label="放大视口"
+                >
+                  <ZoomIn size={15} />
+                </button>
+                <button
+                  type="button"
+                  className="zoom-fit-btn"
+                  onClick={() => setViewportZoom(1.0)}
+                  title="适应视口"
+                  aria-label="适应视口"
+                >
+                  <Maximize2 size={13} />
+                  适应
+                </button>
+              </div>
+
+              {/* 锁定按钮与播放动画按钮并排，保证视觉统一 */}
+              <button
+                type="button"
+                className={`icon-button ${isLocked ? 'is-active' : ''}`}
+                onClick={() => {
+                  setIsLocked((curr) => !curr)
+                  setMessage(
+                    !isLocked
+                      ? '构图已锁定 🔒，已禁用图片拖动。'
+                      : '构图已解锁 🔓，可拖拽调整图片位置。',
+                  )
+                }}
+                aria-label={isLocked ? '解锁构图' : '锁定构图'}
+                title={isLocked ? '点击解锁构图' : '点击锁定构图'}
+              >
+                {isLocked ? <Lock size={18} /> : <Unlock size={18} />}
+              </button>
+
+              <button
+                type="button"
+                className={`icon-button ${animate ? 'is-active' : ''}`}
+                onClick={() => setAnimate((current) => !current)}
+                aria-label={animate ? '停止动态预览' : '开始动态预览'}
+                title={animate ? '停止动态预览' : '开始动态预览'}
+              >
+                {animate ? <Pause size={18} /> : <Play size={18} />}
+              </button>
+            </div>
           </div>
 
           <div className="canvas-frame">
-            <canvas
-              ref={canvasRef}
-              tabIndex={0}
-              aria-label={view === 'preview' ? `${activeShape.label}吧唧成品预览画布` : `${activeShape.label}吧唧包边预览画布`}
-              onPointerDown={pointerDown}
-              onPointerMove={pointerMove}
-              onPointerUp={pointerUp}
-              onPointerCancel={pointerUp}
-              onWheel={handleWheel}
-              onKeyDown={handleCanvasKeyDown}
-            />
+            <div
+              style={{
+                transform: `scale(${viewportZoom})`,
+                transformOrigin: 'center center',
+                transition: 'transform 0.15s ease-out',
+                display: 'grid',
+                placeItems: 'center',
+                width: '100%',
+              }}
+            >
+              <canvas
+                ref={canvasRef}
+                tabIndex={0}
+                style={{
+                  cursor: isLocked ? 'default' : 'grab',
+                }}
+                aria-label={
+                  view === 'preview'
+                    ? `${activeShape.label}吧唧成品预览画布`
+                    : `${activeShape.label}吧唧包边预览画布`
+                }
+                onPointerDown={pointerDown}
+                onPointerMove={pointerMove}
+                onPointerUp={pointerUp}
+                onPointerCancel={pointerUp}
+                onKeyDown={handleCanvasKeyDown}
+              />
+            </div>
+
             {draggingFile && (
               <div className="drop-overlay">
                 <ImagePlus size={32} aria-hidden="true" />
@@ -465,13 +557,27 @@ const artworkSizeLabel = editor.shape === 'round'
 
           <div className="stage-footer">
             {view === 'preview' ? (
-              <span>{editor.finishedDiameterMm}mm {activeShape.label}成品正面</span>
+              <span>
+                {editor.finishedDiameterMm}mm {activeShape.label}成品正面
+              </span>
             ) : (
               <div className="guide-legend" aria-label="印刷参考线">
-                <span><i className="line print-line" />完整图片边界</span>
-                <span><i className="line wrap-line" />包边区</span>
-                <span><i className="line finished-line" />可见区</span>
-                <span><i className="line safe-line" />安全区</span>
+                <span>
+                  <i className="line print-line" />
+                  完整图片边界
+                </span>
+                <span>
+                  <i className="line wrap-line" />
+                  包边区
+                </span>
+                <span>
+                  <i className="line finished-line" />
+                  可见区
+                </span>
+                <span>
+                  <i className="line safe-line" />
+                  安全区
+                </span>
               </div>
             )}
             <span>{editor.artwork.name}</span>
@@ -522,7 +628,11 @@ const artworkSizeLabel = editor.shape === 'round'
               disabled={loading}
             >
               <ImagePlus size={18} aria-hidden="true" />
-              {loading ? '正在处理...' : editor.artwork.isDemo ? '上传图片' : '更换图片'}
+              {loading
+                ? '正在处理...'
+                : editor.artwork.isDemo
+                  ? '上传图片'
+                  : '更换图片'}
             </button>
 
             <label className="range-row">
@@ -542,60 +652,67 @@ const artworkSizeLabel = editor.shape === 'round'
             </label>
           </section>
 
-         <section className="panel-section">
-           <div className="section-heading">
-             <div>
-               <span className="section-kicker">FINISH</span>
-               <h2>工艺</h2>
-             </div>
-           </div>
-          <span className="control-label">闪底</span>
-          <div className="craft-options craft-grid">
-            {([
-              { id: 'none' as const, label: '无闪底', icon: Circle, swatch: 'plain' },
-              { id: 'silver-glitter' as const, label: '银闪', icon: Sparkles, swatch: 'glitter silver' },
-              { id: 'gold-glitter' as const, label: '金闪', icon: Sparkles, swatch: 'glitter gold' },
-              { id: 'pearl' as const, label: '珠光', icon: Gem, swatch: 'pearl' },
-            ]).map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                className={editor.baseCraft === c.id ? 'is-selected' : ''}
-                aria-pressed={editor.baseCraft === c.id}
-                onClick={() => changeBaseCraft(c.id)}
-              >
-                <span className={`craft-swatch ${c.swatch}`}><c.icon size={18} /></span>
-                {c.label}
-              </button>
-            ))}
-          </div>
+          <section className="panel-section">
+            <div className="section-heading">
+              <div>
+                <span className="section-kicker">FINISH</span>
+                <h2>工艺</h2>
+              </div>
+            </div>
+            <span className="control-label">闪底 (底纸材质)</span>
+            <div className="craft-options craft-grid">
+              {[
+                { id: 'none' as const, label: '无闪底', icon: Circle, swatch: 'plain' },
+                { id: 'fine-silver' as const, label: '细银闪', icon: Sparkles, swatch: 'fine-silver' },
+                { id: 'silver-glitter' as const, label: '银葱', icon: Sparkles, swatch: 'glitter silver' },
+                { id: 'brushed-silver' as const, label: '拉丝银葱', icon: Sparkles, swatch: 'brushed' },
+                { id: 'sand-glitter' as const, label: '幻彩白沙', icon: Sparkles, swatch: 'sand' },
+                { id: 'gold-glitter' as const, label: '细金闪', icon: Sparkles, swatch: 'glitter gold' },
+                { id: 'pearl' as const, label: '珠光底', icon: Gem, swatch: 'pearl' },
+              ].map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className={editor.baseCraft === c.id ? 'is-selected' : ''}
+                  aria-pressed={editor.baseCraft === c.id}
+                  onClick={() => changeBaseCraft(c.id)}
+                >
+                  <span className={`craft-swatch ${c.swatch}`}>
+                    <c.icon size={18} />
+                  </span>
+                  {c.label}
+                </button>
+              ))}
+            </div>
 
-          <span className="control-label craft-sub-label">覆膜</span>
-          <div className="craft-options craft-grid">
-            {([
-              { id: 'none' as const, label: '无膜', icon: Circle, swatch: 'plain' },
-              { id: 'glossy' as const, label: '亮膜', icon: Sun, swatch: 'glossy' },
-              { id: 'matte' as const, label: '哑光', icon: Sun, swatch: 'matte' },
-              { id: 'rainbow' as const, label: '素面镭射', icon: Gem, swatch: 'holographic' },
-              { id: 'cracked-ice' as const, label: '碎冰镭射', icon: Gem, swatch: 'cracked-ice' },
-              { id: 'lattice' as const, label: '方格镭射', icon: Gem, swatch: 'lattice' },
-            ]).map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                className={editor.filmCraft === c.id ? 'is-selected' : ''}
-                aria-pressed={editor.filmCraft === c.id}
-                onClick={() => changeFilmCraft(c.id)}
-              >
-                <span className={`craft-swatch ${c.swatch}`}><c.icon size={18} /></span>
-                {c.label}
-              </button>
-            ))}
-          </div>
-          <p className="craft-hint">
-            银闪 + 素面镭射 = 双闪. 底层闪粉提供内部闪烁, 表面膜层提供光泽或彩虹反光.
-          </p>
-        </section>
+            <span className="control-label craft-sub-label">覆膜 (表面光学膜)</span>
+            <div className="craft-options craft-grid">
+              {[
+                { id: 'none' as const, label: '无膜', icon: Circle, swatch: 'plain' },
+                { id: 'glossy' as const, label: '高透亮膜', icon: Sun, swatch: 'glossy' },
+                { id: 'matte' as const, label: '丝绒哑膜', icon: Sun, swatch: 'matte' },
+                { id: 'rainbow' as const, label: '素面镭射', icon: Gem, swatch: 'holographic' },
+                { id: 'cracked-ice' as const, label: '碎玻璃镭射', icon: Gem, swatch: 'cracked-ice' },
+                { id: 'cross' as const, label: '十字星芒', icon: Sparkles, swatch: 'cross' },
+              ].map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className={editor.filmCraft === c.id ? 'is-selected' : ''}
+                  aria-pressed={editor.filmCraft === c.id}
+                  onClick={() => changeFilmCraft(c.id)}
+                >
+                  <span className={`craft-swatch ${c.swatch}`}>
+                    <c.icon size={18} />
+                  </span>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            <p className="craft-hint">
+              💡 <strong>双闪组合推荐</strong>：细银闪 / 银葱 / 幻彩白沙 + 碎玻璃 / 素面 / 十字镭射膜。底纸在图层下方闪耀，表面膜层折射彩虹光栅。
+            </p>
+          </section>
 
           <section className="panel-section">
             <div className="section-heading">
@@ -673,34 +790,25 @@ const artworkSizeLabel = editor.shape === 'round'
               </div>
             </div>
             <div className="export-actions">
-              <button type="button" className="secondary-action" onClick={exportPreview}>
+              <button
+                type="button"
+                className="secondary-action"
+                onClick={exportPreview}
+              >
                 <Download size={18} aria-hidden="true" />
                 效果图
                 <span>1080px</span>
               </button>
-              <button type="button" className="primary-action" onClick={() => setConfirmPrint(true)}>
+              <button
+                type="button"
+                className="primary-action"
+                onClick={() => setConfirmPrint(true)}
+              >
                 <FileOutput size={18} aria-hidden="true" />
                 制作原图
                 <span>{printPixels}px</span>
               </button>
             </div>
-            {confirmPrint && (
-              <div className="confirm-panel" role="alert">
-                <strong>确认导出制作原图</strong>
-                <p>
-                  将导出 {editor.printDiameterMm}mm 完整图片、{editor.finishedDiameterMm}mm {activeShape.label}成品可见区的 {printPixels}x{printPixels}px PNG.
-                  外圈包边区不会出现在成品正面.
-                </p>
-                <div>
-                  <button type="button" className="confirm-cancel" onClick={() => setConfirmPrint(false)}>
-                    取消
-                  </button>
-                  <button type="button" className="confirm-submit" onClick={confirmAndExportPrint}>
-                    确认导出
-                  </button>
-                </div>
-              </div>
-            )}
             <p
               className={`status-message ${isError ? 'is-error' : ''}`}
               aria-live="polite"
@@ -710,6 +818,91 @@ const artworkSizeLabel = editor.shape === 'round'
           </section>
         </aside>
       </main>
+
+      {/* 确认导出制作原图 - 专业模态弹窗 */}
+      {confirmPrint && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onClick={() => setConfirmPrint(false)}
+        >
+          <div
+            className="modal-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-print-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div className="modal-title-wrap">
+                <span className="modal-icon">
+                  <FileOutput size={18} />
+                </span>
+                <h3 id="confirm-print-title">确认导出制作原图</h3>
+              </div>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setConfirmPrint(false)}
+                aria-label="关闭弹窗"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <p className="modal-desc">
+                原图将以 <strong>300 DPI 无损印刷标准</strong> 导出完整画稿。外圈包边区将用于金属卷边包裹，不会出现在成品正面。
+              </p>
+
+              <div className="modal-spec-card">
+                <div className="spec-row">
+                  <span className="spec-name">吧唧规格</span>
+                  <span className="spec-val">
+                    {editor.finishedDiameterMm}mm {activeShape.label} ({craftLabel})
+                  </span>
+                </div>
+                <div className="spec-row">
+                  <span className="spec-name">导出原图尺寸</span>
+                  <span className="spec-val highlight">
+                    {printPixels} × {printPixels} px ({editor.printDiameterMm}mm)
+                  </span>
+                </div>
+                <div className="spec-row">
+                  <span className="spec-name">成品正面可见</span>
+                  <span className="spec-val">{editor.finishedDiameterMm}mm</span>
+                </div>
+                <div className="spec-row">
+                  <span className="spec-name">每侧包边预留</span>
+                  <span className="spec-val">{wrapMarginMm.toFixed(1)}mm</span>
+                </div>
+                <div className="spec-row">
+                  <span className="spec-name">印刷分辨率</span>
+                  <span className="spec-val">300 DPI (CMYK标准)</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="modal-cancel-btn"
+                onClick={() => setConfirmPrint(false)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="modal-confirm-btn"
+                onClick={confirmAndExportPrint}
+              >
+                <Download size={16} />
+                确认导出原图 ({printPixels}px)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
