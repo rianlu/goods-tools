@@ -53,3 +53,18 @@ test('keeps the complete print circle covered', () => {
     { offsetX: 0.5, offsetY: 0, zoom: 1 },
   )
 })
+
+test('correctly computes pixel dimensions for all presets at 300 DPI', () => {
+  const expectedPixels = {
+    '25': 366,
+    '32': 449,
+    '44': 614,
+    '58': 827,
+    '75': 1028,
+  }
+  for (const preset of BADGE_PRESETS) {
+    const px = mmToPixels(preset.printDiameterMm, 300)
+    assert.equal(px, expectedPixels[preset.id as keyof typeof expectedPixels])
+  }
+})
+

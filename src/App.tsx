@@ -30,9 +30,10 @@ import {
   createDemoArtwork,
   createPreviewExport,
   createPrintExport,
-  downloadCanvas,
-  loadArtwork,
-  renderWorkspace,
+ downloadCanvas,
+ loadArtwork,
+  preloadTextures,
+ renderWorkspace,
   validateArtworkFile,
   type BaseCraft,
   type FilmCraft,
@@ -118,18 +119,22 @@ const artworkSizeLabel = editor.shape === 'round'
   ? '完整图片直径'
   : '完整图片边长'
 
+
+ useEffect(() => {
+    preloadTextures()
+  }, [])
+
  useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-
     let animationFrame = 0
     const shouldAnimate = animate && !reducedMotion
 
     const draw = (time: number) => {
       // Circular wobble: like swirling a glass, the badge tilts in a circle.
-      const phase = shouldAnimate ? (time % 3600) / 3600 * Math.PI * 2 : 0
+      const phase = shouldAnimate ? ((time % 3600) / 3600) * Math.PI * 2 : 0
       const t = shouldAnimate ? Math.sin(phase) : 0
-      renderWorkspace(canvas, editor, view, t)
+      renderWorkspace(canvas, editor, view, t, shouldAnimate ? phase : null)
       if (shouldAnimate) animationFrame = requestAnimationFrame(draw)
     }
 
