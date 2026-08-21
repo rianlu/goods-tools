@@ -1,175 +1,117 @@
-# 谷子Tools 技术方案 v1.1
+# Goods-Tools (谷子周边工具箱) 技术方案 v1.2
 
-> 平台: Web 优先  
-> 渲染: Canvas 2D  
-> 运行方式: 纯静态前端
+> 运行环境: 纯静态前端 (零后端、零外部着色依赖)  
+> 核心引擎: HTML5 2D Canvas 程序化光学着色管线  
+> 技术架构: React 19 + TypeScript + Vite 8  
 
-## 1. 最小技术栈
+---
 
-```text
-React 19 + Vite + TypeScript
-├── UI 图标: lucide-react
-├── 预览与导出: 原生 Canvas 2D
-├── 图片输入: File API + createImageBitmap / HTMLImageElement
-├── 状态: React 本地状态
-├── 样式: 普通 CSS
-└── 部署: 任意静态托管
-```
+## 1. 架构定位与设计原则
 
-- 使用 Canvas 2D 完成形状裁剪、区域标识、边缘弯曲暗影、镭射模拟和 PNG 导出.
-- 不引入状态管理、图片编辑器、云存储或 WebGL 依赖.
-- 不把商家刀模做成首版必需数据结构.
-- 仅在真实设备证明 Canvas 2D 无法满足效果或性能时引入更重的渲染器.
-
-## 2. 状态模型
-
-使用一份状态驱动成品预览、完整图片范围和导出:
-
-```ts
-type BaseCraft = 'none' | 'fine-silver' | 'silver-glitter' | 'brushed-silver' | 'sand-glitter' | 'gold-glitter' | 'pearl'
-type FilmCraft = 'none' | 'glossy' | 'matte' | 'rainbow' | 'cracked-ice' | 'cross'
-
-type RenderState = {
-  artwork: Artwork
-  transform: Transform
-  baseCraft: BaseCraft
-  filmCraft: FilmCraft
-  shape: 'round' | 'square'
-  finishedDiameterMm: number
-  printDiameterMm: number
-  safeDiameterMm: number
-}
-```
-
-- `shape` 决定圆形或圆角方形的预览、参考线和导出裁切.
-- `baseCraft` 控制闪底层 (7 款): 无闪底、细银闪(细密微晶)、银葱(六边形大反光亮片)、拉丝银葱(金属拉丝)、幻彩白沙(细沙偏光)、细金闪(金葱)或珠光底(贝母纸).
-- `filmCraft` 控制覆膜层 (6 款): 无膜、高透亮膜、丝绒哑膜、素面镭射(连续彩虹色散)、碎玻璃镭射(多面水晶晶格)或十字星芒膜.
-- 两层独立组合, 闪底 + 镭射覆膜 = 双闪.
-- 三个尺寸值按当前形状分别表示直径或边长.
-- 这三个值由用户选择的常用尺寸预设自动带入, 不要求用户填写商家参数.
-- 偏移量保存为相对完整图片画布的归一化值.
-- 缩放保存为相对完整图片画布覆盖范围的倍数.
-- 禁止为预览和制作原图维护两份独立图片状态.
-
-## 3. 尺寸预设
-
-预设集中保存在 `src/geometry.ts`:
-
-```ts
-type BadgePreset = {
-  id: string
-  label: string
-  finishedDiameterMm: number
-  printDiameterMm: number
-  safeDiameterMm: number
-}
-```
-
-当前预设为 25mm、32mm、44mm、58mm 和 75mm. 它们是通用预览参考, 不是商家刀模. 后续增加尺寸时只需增加预设, 不需要增加渲染分支.
-
-形状选项为圆形和圆角方形. 所有形状复用同一套尺寸预设、图片变换和导出分辨率计算.
-
-## 4. 渲染管线
-
-### 4.1 成品效果（五层物理分解与程序化光学渲染）
-
-```text
-中性棚拍背景 + 弥散与接触双层动态阴影
-  ├── 1. 用户原画层 (Mapped Artwork)
-  ├── 2. 闪底层 (Glitter Base: 确定性微粒场 + 扫光增益 + 珠光偏光)
-  ├── 3. 覆膜层 (Film Craft: 彩虹色散光栅 / 水晶碎冰 / 棋盘方格 / 弧面天光)
-  ├── 4. 顶层星芒 (Glitter Accents: 穿透覆膜的十字星芒与彩虹耀斑)
-  └── 5. 3D 实体层 (微凸穹顶环境光 + 冲压金属包边轮廓高光 + 包边卷纸暗影)
-```
-
-- 根据 25mm 到 75mm 的成品尺寸线性调整吧唧本体在画布中的显示比例.
-- 银闪/金闪底使用程序化高密度微米级粒子场，在迎光区域实时计算相位激发出 4 角/6 角十字星芒.
-- 亮膜使用真实微凸穹顶计算的双层主次窗光反射带.
-- 素面镭射使用基于物理色散波长的连续动态彩虹光谱流转算法.
-- 碎冰镭射使用程序化多面晶格（Voronoi Shards），每个晶面具有独立的入射角法线与色相偏移.
-- 双闪模式下通过分层复合算法与明度保护曲线，让闪粉既璀璨闪耀，又绝不冲淡原画色彩.
-- 默认在自然静止角度呈现精致棚拍质感，开启动态预览后模拟 360° 真实转动与光影流转.
-
-### 4.2 完整图片范围
-
-```text
-透明参考背景
-  -> 完整形状图片
-  -> 包边区半透明标识
-  -> 成品可见边界
-  -> 安全区边界
-```
-
-- 包边区是完整形状与成品可见形状之间的区域.
-- 安全区只用于屏幕提示.
-- 参考线和色带不写入制作原图.
-
-### 4.3 制作原图
-
-```text
-透明画布
-  -> 完整形状裁剪
-  -> 用户原图
-  -> 300 DPI PNG 元数据
-```
-
-- 使用 `round(printDiameterMm / 25.4 * 300)` 计算完整图片画布边长.
-- 使用相同图片变换绘制完整图片形状.
-- 禁止绘制边缘暗影、投影、背景、工艺效果和参考线.
-- 写入 PNG `pHYs` 块, 将分辨率记录为 300 DPI.
-
-## 5. 输入和错误边界
-
-- 输入文件限制为 15MB.
-- 工作图最长边限制为 2048px.
-- 优先使用 `createImageBitmap` 解码和缩放.
-- 不支持时使用 `HTMLImageElement` 和临时 Canvas.
-- 替换图片和组件销毁时释放 Object URL 和 ImageBitmap.
-- 对格式错误、解码失败、导出失败和内存不足给出可执行提示.
-
-## 6. 文件结构
+Goods-Tools 采用**模块化独立打样工作台 (Studios)** 与 **通用底层渲染管线 (Core Pipeline)** 解耦的架构体系：
 
 ```text
 goods-tools/
-├── docs/
-│   ├── feature-overview.md
-│   └── tech-stack.md
-├── src/
-│   ├── App.tsx
-│   ├── canvas.ts
-│   ├── geometry.ts
-│   ├── geometry.test.ts
-│   ├── main.tsx
-│   └── styles.css
-├── index.html
-├── package.json
-└── vite.config.ts
+├── Core Platform (通用底座)
+│   ├── Canvas 2D 程序化光学着色引擎 (闪底、镭射、高光、色散、阴影)
+│   ├── 工业尺寸计算引擎 (300 DPI 物理尺寸、出血位、安全区)
+│   ├── 视口控制系统 (多端自适应比例尺、防误触平移、手势锁定)
+│   └── 本地数据与隐私沙箱 (零上云、内存级对象生命周期管理)
+│
+└── Studios (品类打样工作室)
+    ├── 🧷 Badge Studio (马口铁徽章打样台) —— 【已就绪】
+    ├── 🎨 Shikishi Studio (金边/烫金色纸打样台) —— 【规划中】
+    ├── 📸 Photocard Studio (拍立得/小卡打样台) —— 【规划中】
+    ├── 🎟️ Ticket Studio (透卡/镭射票打样台) —— 【规划中】
+    └── 🪆 Acrylic Studio (亚克力立牌/挂件打样台) —— 【规划中】
 ```
 
-- `geometry.ts` 只负责尺寸预设、单位换算和图片覆盖约束.
-- `canvas.ts` 只负责渲染和导出.
-- `App.tsx` 负责界面、手势和本地编辑状态.
+---
 
-## 7. 验证
+## 2. 状态模型 (Badge Studio)
 
-- [x] Node 内置测试验证尺寸换算和图片覆盖约束.
-- [x] TypeScript 类型检查通过.
-- [x] Vite 生产构建通过.
-- [x] 浏览器验证上传、拖动、缩放、尺寸切换、视图切换、工艺切换和双导出.
-- [x] 验证效果图为 1080x1080 PNG.
-- [x] 验证 58mm 默认制作原图为 827x827 PNG, 形状外透明.
-- [x] 验证制作原图写入 300 DPI 元数据.
-- [x] 桌面和 390x844 移动视口无重叠、溢出和画布空白.
+```ts
+export type BaseCraft =
+  | 'none'
+  | 'fine-silver'
+  | 'silver-glitter'
+  | 'brushed-silver'
+  | 'sand-glitter'
+  | 'gold-glitter'
+  | 'pearl'
 
-## 8. 微信小程序迁移
+export type FilmCraft =
+  | 'none'
+  | 'glossy'
+  | 'matte'
+  | 'rainbow'
+  | 'cracked-ice'
+  | 'cross'
 
-仅在 Web 首版得到真实使用后执行小程序开发:
+export type BadgeShape = 'round' | 'square'
 
-- 使用原生小程序页面和 Canvas 2D.
-- 复用尺寸预设、变换规则、素材命名和验收样例.
-- 分别实现文件选择、手势、Canvas 生命周期、保存相册和分享入口.
-- 不直接迁移 React UI 和浏览器 Canvas 实例.
-- 将效果图限制为 1080x1080.
-- 将制作原图限制在真机 Canvas 能稳定处理的尺寸内.
-- 仅在真机验证性能后决定是否保留动态镭射效果.
-- 将本地制作原图保存到相册后交由用户发送给商家.
+export type Transform = {
+  scale: number
+  offsetX: number
+  offsetY: number
+}
+
+export type EditorState = {
+  artwork: Artwork | null
+  transform: Transform
+  baseCraft: BaseCraft
+  filmCraft: FilmCraft
+  shape: BadgeShape
+  finishedDiameterMm: number
+  printDiameterMm: number
+  safeDiameterMm: number
+}
+```
+
+- **单向数据流**：单一 `EditorState` 驱动效果图渲染、包边图渲染与 300 DPI 原图导出，杜绝状态不一致；
+- **归一化变换**：`offsetX` 和 `offsetY` 存储相对画框的归一化百分比，缩放 `scale` 存储基于边界覆盖的倍率。
+
+---
+
+## 3. 核心光学渲染管线
+
+### 3.1 五层程序化光学合成（成品预览）
+
+```text
+中性棚拍背景 + 接触与弥散双层地面投影
+  ├── 1. 用户原画层 (Mapped Artwork)
+  ├── 2. 闪底层 (Glitter Base: 确定性微粒场 + 局部扫光增益 + 珠光双色偏光)
+  ├── 3. 覆膜层 (Film Craft: 物理波长彩虹色散 / 多面水晶折射 / 十字星芒 / 弧面天光)
+  ├── 4. 穿透星芒层 (Glitter Accents: 穿透覆膜的高亮星芒微粒)
+  └── 5. 3D 实体层 (微凸穹顶环境光 + 冲压金属包边轮廓高光 + 包边卷纸暗影)
+```
+
+- **确定性粒子场**：通过伪随机哈希算法生成固定的微米级晶片位置与朝向，保证无论如何缩放或转动，闪粉颗粒位置绝对稳定；
+- **物理色散光谱**：素面镭射膜基于可见光波长（380nm~750nm）实现连续平滑色散，随光照角流转；
+- **多面水晶晶格**：碎玻璃镭射膜采用程序化多边形晶格，各晶面依据独立入射角法线计算折射色相；
+- **明度与对比度保护**：双闪复合模式下采用非线性色彩混合曲线，在暗部保持黑场深邃，仅在亮部和边缘激发高光。
+
+### 3.2 300 DPI 印刷原图输出管线
+
+```text
+透明画布 (Pixel Size = round(printDiameterMm / 25.4 * 300))
+  -> 完整形状几何裁切 (圆形 / 圆角方形)
+  -> 渲染变换后的用户原画 (无损高保真绘制)
+  -> 注入 PNG pHYs 数据块 (记录 300 DPI 分辨率元数据)
+  -> 触发浏览器端无损下载
+```
+
+---
+
+## 4. 质量保障与自动化验证
+
+- **单元测试**：使用 Node.js 原生测试器（`node:test`）对 `geometry.ts` 中的 300 DPI 换算公式、包边公差、安全区计算与图片覆盖约束进行 100% 自动化测试；
+- **类型系统**：严格 TypeScript 模式（`tsc --noEmit`），零类型推断错误；
+- **自动化截图与视觉测试**：内置基于 Playwright 的自动化无头截图工作流，自动验证桌面端、移动端与模态弹窗的视觉表现。
+
+---
+
+## 5. 开源与后续规划
+
+- 推进品类扩展：按计划逐步引入金边色纸、拍立得、透卡等模块；
+- 保持纯前端架构：坚持 100% 浏览器端本地渲染，不引入后端存储，保持轻量高效与用户隐私安全。
