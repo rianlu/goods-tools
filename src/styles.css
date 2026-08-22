@@ -98,9 +98,82 @@ button:disabled {
   line-height: 1.2;
 }
 
-.brand div span {
-  color: var(--muted);
-  font-size: 11px;
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.studio-switcher {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  background: #edf1f4;
+  border: 1px solid #d4d9de;
+  border-radius: 8px;
+  gap: 3px;
+}
+
+.studio-tab {
+  height: 32px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #555d66;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.studio-tab:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.studio-tab.is-active {
+  color: var(--ink);
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(23, 24, 28, 0.1);
+}
+
+.studio-icon {
+  font-size: 14px;
+}
+
+.studio-badge {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #ff4757;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+
+.flip-card-btn {
+  height: 40px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #cfd4d8;
+  border-radius: 7px;
+  background: #ffffff;
+  color: var(--cyan-dark);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.flip-card-btn:hover {
+  border-color: var(--cyan-dark);
+  background: #e9f8f7;
 }
 
 .local-badge {
@@ -418,15 +491,300 @@ button:disabled {
   cursor: pointer;
 }
 
-.upload-button {
-  border: 1px dashed #9aa1a7;
+/* 统一画稿管理卡片 */
+.artwork-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: #f7f9fa;
+  border: 1px solid #d4d9de;
+  border-radius: 8px;
+}
+
+.artwork-info-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.artwork-thumb-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: #e5e9ec;
+  color: #4a515a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.artwork-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.artwork-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.artwork-status {
+  font-size: 11px;
+  color: #6a737d;
+}
+
+.artwork-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.action-pill-btn {
+  height: 28px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #cfd4d8;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #444b52;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.action-pill-btn:hover {
+  background: #edf1f4;
+  border-color: #92999f;
+  color: var(--ink);
+}
+
+.action-pill-btn.is-danger {
+  color: #d63031;
+}
+
+.action-pill-btn.is-danger:hover {
+  background: #ffebee;
+  border-color: #ff7675;
+}
+
+.upload-trigger-btn {
+  width: 100%;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #cad0d6;
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.upload-trigger-btn:hover {
+  border-color: var(--cyan-dark);
+  color: var(--cyan-dark);
+  background: #eaf8f7;
+}
+
+/* 拍立得正反双面切换器 */
+.side-switcher {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 3px;
+  background: #edf1f4;
+  border-radius: 8px;
+}
+
+.side-switcher button {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #555d66;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.side-switcher button.is-active {
+  background: #ffffff;
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgba(23, 24, 28, 0.1);
+}
+
+/* 详尽小卡规格选择卡片网格 */
+.spec-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.spec-option-card {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid #d2d6da;
+  border-radius: 7px;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.spec-option-card:hover {
+  border-color: #92999f;
   background: #f7f8f9;
 }
 
-.upload-button:hover:not(:disabled) {
+.spec-option-card.is-selected {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+  background: #fff9dc;
+}
+
+.spec-option-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.spec-option-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1.2;
+}
+
+.spec-option-dim {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--cyan-dark);
+}
+
+.spec-option-detail {
+  font-size: 10px;
+  color: #717a84;
+}
+
+/* 底部手写签名控制组 */
+.signature-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.signature-text-input {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #cfd4d8;
+  border-radius: 6px;
+  font-size: 13px;
+  background: #ffffff;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.signature-text-input:focus {
   border-color: var(--cyan-dark);
-  color: #0f706c;
-  background: #eaf8f7;
+}
+
+.signature-font-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.font-tab {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d2d6da;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #555d66;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.font-tab:hover {
+  background: #f7f8f9;
+}
+
+.font-tab.is-active {
+  border-color: var(--ink);
+  background: #23252a;
+  color: #ffffff;
+}
+
+.signature-color-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.color-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #cfd4d8;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.color-dot:hover {
+  transform: scale(1.15);
+}
+
+.color-dot.is-active {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--ink);
+}
+
+.date-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: #555d66;
+  cursor: pointer;
+}
+
+.date-toggle-label input {
+  accent-color: var(--cyan-dark);
 }
 
 .range-row {
@@ -499,19 +857,11 @@ button:disabled {
   border-radius: 50%;
 }
 
+.craft-swatch.none,
 .craft-swatch.plain {
   color: #596068;
   background: #e8ecef;
   font-size: 11px;
-}
-
-.craft-swatch.glitter {
-  color: #5a5a72;
-  background: radial-gradient(circle at 30% 30%, #e8e8f5, #c8c8d8 50%, #b0b0c5);
-}
-
-.craft-swatch.glitter.silver {
-  background: radial-gradient(circle at 30% 30%, #e8e8f5, #c8c8d8 50%, #b0b0c5);
 }
 
 .craft-swatch.fine-silver {
@@ -519,32 +869,43 @@ button:disabled {
   background: radial-gradient(circle at 40% 35%, #ffffff, #e0e4ec 45%, #c8cdd8);
 }
 
-.icon-button.is-active {
-  border-color: var(--cyan-dark);
-  background: #e9f8f7;
-  color: var(--cyan-dark);
+.craft-swatch.silver-glitter,
+.craft-swatch.glitter {
+  color: #5a5a72;
+  background: radial-gradient(circle at 30% 30%, #ffffff, #dcdce8 45%, #a8a8c0);
 }
 
-.craft-swatch.glitter.gold {
+.craft-swatch.gold-glitter {
   color: #6a5328;
-  background: radial-gradient(circle at 30% 30%, #fff3d0, #f0c850 50%, #d4a020);
+  background: radial-gradient(circle at 35% 30%, #fff8d8, #f5d060 50%, #d4a020);
+}
+
+.craft-swatch.sand-glitter {
+  color: #6c5ce7;
+  background: conic-gradient(from 45deg at 50% 50%, #ff7675, #74b9ff, #55efc4, #ffeaa7, #a29bfe, #ff7675);
+}
+
+.craft-swatch.brushed-silver {
+  color: #4b4d54;
+  background: repeating-linear-gradient(90deg, #f0f2f5, #e0e4ec 3px, #f5f6f8 6px, #d5d9e2 9px);
 }
 
 .craft-swatch.pearl {
   color: #504a5a;
-  background: linear-gradient(135deg, #f5f0f8, #e8e0f0 30%, #f0f0e8 60%, #f8f0e0);
+  background: linear-gradient(135deg, #fcf6fc, #e8f4fc 35%, #fefcf0 70%, #f4ecfc);
 }
 
 .craft-swatch.glossy {
   color: #8a6a2a;
-  background: radial-gradient(circle at 35% 30%, #fffce8, #f0e4b0 60%, #d4c280);
+  background: radial-gradient(circle at 35% 30%, #ffffff, #f7f0d0 55%, #d8c480);
 }
 
 .craft-swatch.matte {
   color: #585858;
-  background: linear-gradient(135deg, #d8d8d8, #c8c8c8 50%, #d0d0d0);
+  background: linear-gradient(135deg, #e4e4e6, #cdcdcf 50%, #d8d8da);
 }
 
+.craft-swatch.rainbow,
 .craft-swatch.holographic {
   color: #3b3b57;
   background: conic-gradient(from 0deg, #63d6d1, #4282ff, #b450dc, #f05a4f, #f4d35e, #78dc64, #63d6d1);
@@ -558,6 +919,7 @@ button:disabled {
   background-blend-mode: screen;
 }
 
+.craft-swatch.cross,
 .craft-swatch.lattice {
   color: #3b3b57;
   background: repeating-conic-gradient(from 0deg, #63d6d1 0deg 45deg, #4282ff 45deg 90deg, #b450dc 90deg 135deg, #f05a4f 135deg 180deg, #f4d35e 180deg 225deg, #78dc64 225deg 270deg, #63d6d1 270deg 315deg, #4282ff 315deg 360deg);
@@ -627,28 +989,124 @@ button:disabled {
   background: #fff9dc;
 }
 
-.size-options {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
+/* 吧唧多层分级尺寸选择器 (杜绝拥挤) */
+.badge-size-container {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
 }
 
-.size-options button {
-  min-height: 36px;
-  border: 1px solid #d2d6da;
-  border-radius: 6px;
-  background: #fff;
-  color: #596068;
-  font-size: 12px;
-  font-weight: 800;
-  cursor: pointer;
+.badge-size-row-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
 }
 
-.size-options button.is-selected {
+.badge-size-row-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.badge-size-btn {
+  padding: 6px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid #d2d6da;
+  border-radius: 6px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.badge-size-btn:hover {
+  border-color: #92999f;
+  background: #f7f8f9;
+}
+
+.badge-size-btn.is-selected {
   border-color: var(--ink);
   box-shadow: inset 0 0 0 1px var(--ink);
-  color: var(--ink);
   background: #fff9dc;
+}
+
+.badge-size-btn.featured {
+  padding: 8px 10px;
+}
+
+.featured-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.badge-size-num {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.badge-size-tag {
+  font-size: 10px;
+  color: #717a84;
+  font-weight: 700;
+}
+
+.badge-size-tag.highlight {
+  color: #e65100;
+  background: #ffe0b2;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* 拍立得/小卡 3 列冲切圆角卡片 */
+.corner-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.corner-option-card {
+  padding: 8px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 1px solid #d2d6da;
+  border-radius: 6px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.corner-option-card:hover {
+  border-color: #92999f;
+  background: #f7f8f9;
+}
+
+.corner-option-card.is-selected {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+  background: #fff9dc;
+}
+
+.corner-tag {
+  font-size: 13px;
+  font-weight: 800;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--cyan-dark);
+}
+
+.corner-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #555d66;
 }
 
 .dimension-grid {

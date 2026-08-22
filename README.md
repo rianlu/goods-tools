@@ -10,11 +10,11 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Privacy](https://img.shields.io/badge/Privacy-100%25%20Local-10b981?logo=shield&logoColor=white)](#-隐私与数据说明)
 
-[项目简介](#-项目简介) • [品类支持与规划](#-品类支持与规划) • [吧唧打样台特性](#-吧唧打样台模块已就绪) • [界面预览](#-界面预览) • [快速启动](#-快速启动) • [技术架构](#-技术架构)
+[项目简介](#-项目简介) • [品类支持与规划](#-品类支持与规划) • [核心模块特性](#-核心模块特性) • [界面预览](#-界面预览) • [快速启动](#-快速启动) • [技术架构](#-技术架构)
 
 <br />
 
-<img src="docs/images/hero-desktop.png" alt="Goods-Tools 桌面端成品效果预览" width="100%" style="border-radius: 8px; border: 1px solid #e1e4e8;" />
+<img src="docs/images/photocard-preview.png" alt="Goods-Tools 拍立得/小卡打样台效果预览" width="100%" style="border-radius: 8px; border: 1px solid #e1e4e8;" />
 
 </div>
 
@@ -30,38 +30,37 @@
 
 ## 🗺️ 品类支持与规划
 
-项目采用模块化工具箱架构，涵盖谷圈常见的多种周边形态：
+项目采用模块化「Core 核心底座 + Studios 多品类工作室」架构：
 
 | 周边品类 | 状态 | 核心功能与工艺支持 |
 | :--- | :---: | :--- |
 | **🧷 马口铁吧唧 (Badge Studio)** | **已就绪** | 25~75mm 常用尺寸、圆/方双模具、冲压包边规范、7 款闪底 + 6 款覆膜双闪复合、360° 展示动效、300 DPI 印刷图导出 |
+| **📸 拍立得/收藏小卡 (Photocard Studio)** | **已就绪** | 富士Mini/方框/小卡/宽幅 4 款规格、4 款相框模板、300g 纸卡立体厚度、正反双面打样、手写签名与日期戳、1.5mm 出血线预览与 300 DPI 导出 |
 | **🎨 金边/烫金色纸 (Shikishi Studio)** | 规划中 | 2mm 断面卡纸质感、四边烫金边框（金/银/镭射边）、局部烫金反光遮罩 |
-| **📸 拍立得/收藏小卡 (Photocard Studio)** | 规划中 | 经典拍立得边框模板、圆角冲切、手写签名层、正反双面覆膜预览 |
 | **🎟️ PET透卡 / 镭射票 (Ticket Studio)** | 规划中 | 透明 PET 材质透光预览、局部白墨遮光对比、票根撕线齿孔 |
 | **🪆 亚克力立牌 / 挂件 (Acrylic Studio)** | 规划中 | 透明夹层与折射、自动生成外轮廓切割线（Cutline）、底座插榫孔位辅助 |
 
 ---
 
-## 🧷 吧唧打样台模块（已就绪）
+## ✨ 核心模块特性
 
-作为 Goods-Tools 的首发模块，吧唧打样台现已完整支持以下功能：
-
-- **程序化工艺模拟（双闪复合）**
+### 1. 🧷 马口铁吧唧打样台 (Badge Studio)
+- **程序化工艺模拟（双闪复合）**：
   - **7 款底纸闪底**：无闪底（纯白卡）、细银闪（高密微晶）、银葱（六边形大亮片）、拉丝银葱（金属拉丝+细闪）、幻彩白沙（偏光白沙）、细金闪（香槟金）、珠光底（贝母偏光）；
   - **6 款表面光学覆膜**：无膜、高透亮膜、丝绒哑膜（磨砂）、素面镭射（彩虹光谱）、碎玻璃镭射（多面水晶晶格）、十字星芒膜；
-  - 支持底纸与表层膜自由叠加，底纸闪粉在暗部闪烁，表层膜随光源折射彩光。
-- **360° 环形展示动效**
-  - 模拟手持吧唧在光源下连续圆周倾斜转动的轨迹，动态观察表面高光、色散光谱与地面投影变化。
-- **工业包边与安全区规范**
-  - 覆盖 25mm / 32mm / 44mm / 58mm / 75mm 尺寸及圆形、方形模具；
-  - 自动标示冲压折边区（6.0mm）与建议安全区，杜绝文字或重要构图被卷入金属边缘。
-- **300 DPI 印刷原图导出**
-  - 模态弹窗核对导出规格，一键导出严格符合工业印刷分辨率的无损 PNG 制作原图。
-- **视口比例尺与构图防误触**
-  - 顶部提供 50%~250% 视口比例尺，方便微距查看工艺细节；
-  - 滚轮不劫持缩放，放大后可平滑滚动漫游；支持一键锁定构图。
-- **多端响应式适配**
-  - 针对 PC 桌面端与移动端小屏分别进行布局优化，支持触控操作。
+- **360° 环形展示动效**：模拟手持吧唧在光源下连续圆周倾斜转动的轨迹，动态观察表面高光、色散光谱与地面投影变化；
+- **冲压包边与安全区规范**：覆盖 25mm / 32mm / 44mm / 58mm / 75mm 尺寸及圆形、方形模具，标示冲压折边区与建议安全区；
+- **300 DPI 印刷原图导出**：一键导出严格符合工业印刷分辨率的无损 PNG 制作原图。
+
+### 2. 📸 拍立得/收藏小卡打样台 (Photocard Studio)
+- **多款相纸规格与模板**：
+  - **4 种主流规格**：富士 Mini 拍立得 (54×86mm)、方形拍立得 (72×86mm)、标准追星/收藏小卡 (54×85mm)、宽幅拍立得 (108×86mm)；
+  - **4 款边框模板**：经典纯白相框、复古纯黑相框、满版无白边小卡、复古胶片齿孔相框；
+  - **冲切圆角 (R角)**：直角 (R0)、标准圆角 (R3)、大圆角 (R5)；
+- **300g 相纸立体拟真**：硬质卡纸断面微反光、高光倒角与软阴影；
+- **正反双面打样系统**：支持独立上传正面画稿与背面卡背，一键翻转查看；
+- **底部手写签名与日期戳**：支持在拍立得留白区自定义输入手写印签，提供黑/白/金/粉/蓝多色笔迹与日期戳记；
+- **1.5mm 工业印刷出血位规范与 300 DPI 原图导出**。
 
 ---
 
@@ -70,22 +69,22 @@
 <table width="100%">
   <tr>
     <td width="50%" align="center">
-      <strong>桌面端效果预览</strong><br /><br />
-      <img src="docs/images/hero-desktop.png" alt="成品效果预览" width="100%" />
+      <strong>📸 拍立得/小卡打样台</strong><br /><br />
+      <img src="docs/images/photocard-preview.png" alt="拍立得/小卡打样预览" width="100%" />
     </td>
     <td width="50%" align="center">
-      <strong>冲压包边与安全区规范</strong><br /><br />
-      <img src="docs/images/print-guide-preview.png" alt="包边规范预览" width="100%" />
+      <strong>🧷 马口铁吧唧打样台</strong><br /><br />
+      <img src="docs/images/hero-desktop.png" alt="马口铁吧唧打样预览" width="100%" />
     </td>
   </tr>
   <tr>
     <td width="50%" align="center">
-      <strong>300 DPI 原图导出弹窗</strong><br /><br />
-      <img src="docs/images/export-modal.png" alt="制作原图导出弹窗" width="100%" />
+      <strong>📏 小卡 1.5mm 出血位参考线</strong><br /><br />
+      <img src="docs/images/photocard-bleed-guide.png" alt="出血位参考线预览" width="100%" />
     </td>
     <td width="50%" align="center">
-      <strong>移动端界面适配</strong><br /><br />
-      <img src="docs/images/mobile-preview.png" alt="移动端适配" width="60%" />
+      <strong>📄 300 DPI 印刷图导出弹窗</strong><br /><br />
+      <img src="docs/images/export-modal.png" alt="制作原图导出弹窗" width="100%" />
     </td>
   </tr>
 </table>
@@ -101,64 +100,52 @@
 ### 本地运行
 
 ```bash
-# 1. 安装依赖
+# 1. 克隆仓库
+git clone https://github.com/rianlu/goods-tools.git
+cd goods-tools
+
+# 2. 安装依赖
 npm install
 
-# 2. 启动本地开发服务
+# 3. 启动本地开发服务
 npm run dev
-```
 
-启动后在浏览器中访问控制台输出的本地地址（默认 `http://localhost:5173`）即可使用。
-
-### 常用命令
-
-```bash
-# 运行单元测试
-npm test
-
-# 执行 TypeScript 类型检查
-npm run typecheck
-
-# 构建生产版本（产物输出至 dist/）
+# 4. 生产构建打包
 npm run build
 ```
 
 ---
 
-## 🛠️ 技术架构
+## 🏛️ 技术架构
 
-```
-goods-tools/
-├── src/
-│   ├── App.tsx          # 页面主布局、视口控制、动效循环与弹窗系统
-│   ├── canvas.ts        # Canvas 光学着色引擎 (闪底、覆膜、双闪复合、穹顶光照、包边)
-│   ├── geometry.ts      # 工业尺寸换算 (300 DPI 像素计算、包边与安全区约束)
-│   ├── geometry.test.ts # 尺寸与几何算法测试套件
-│   ├── styles.css       # 样式系统、Design Token 与移动端响应式布局
-│   └── main.tsx         # 入口文件
-├── docs/                # 产品与技术文档
-│   ├── feature-overview.md # 功能规范与工艺定义
-│   ├── tech-stack.md       # 技术方案与着色原理
-│   └── images/             # 界面演示截图
-└── package.json
-```
+项目基于模块化分层设计：
 
-- **核心技术选型**：
-  - **前端框架**：React 19 + TypeScript
-  - **构建工具**：Vite 8
-  - **渲染核心**：HTML5 2D Canvas（轻量程序化光照与多图层合成）
-  - **图标组件**：Lucide React
-  - **测试运行**：Node.js Native Test Runner (`node:test`)
+```text
+src/
+├── core/                                # 通用核心层 (全品类完全复用)
+│   ├── engine/                          # 渲染与光学着色引擎 (物理光照、闪粉微粒、覆膜色散)
+│   ├── geometry/                        # 工业几何计算 (300 DPI 换算、构图边界约束)
+│   ├── components/                      # 公共 UI 控件 (顶栏品类切换、舞台工具栏、导出弹窗)
+│   └── types.ts                         # 全局类型系统
+│
+├── studios/                             # 各周边品类独立工作室
+│   ├── badge/                           # 🧷 马口铁吧唧工作室 (冲压折边、穹顶光照、尺寸预设)
+│   └── photocard/                       # 📸 拍立得/小卡工作室 (纸卡立体感、模板、双面、签名)
+│
+├── App.tsx                              # 根应用路由与状态隔离管理
+└── styles.css                           # 现代化响应式样式体系
+```
 
 ---
 
-## 🛡️ 隐私与数据说明
+## 🔒 隐私与数据说明
 
-- **100% 本地处理**：所有画稿的载入、裁剪、工艺预览与原图导出均在用户浏览器本地完成；
-- **不保留任何数据**：无后端上传接口，关闭或刷新网页后，相关图片数据即从内存中释放。
+* **100% 纯本地运行**：所有图片读取、缩放、材质着色与 300 DPI 导出均在浏览器客户端利用 Canvas 2D 内存完成；
+* **零网络请求**：不会将用户的任何画稿、图片或衍生文件上传至任何服务器或云端；
+* **断网可用**：支持完全离线环境使用。
 
 ---
 
 ## 📄 开源协议
 
-本项目基于 [MIT License](LICENSE) 协议开源。
+本项目采用 [MIT License](LICENSE) 协议开源。

@@ -1,117 +1,60 @@
-# Goods-Tools (谷子周边工具箱) 技术方案 v1.2
+# Goods-Tools (谷子周边工具箱) 技术方案 v1.3
 
-> 运行环境: 纯静态前端 (零后端、零外部着色依赖)  
-> 核心引擎: HTML5 2D Canvas 程序化光学着色管线  
-> 技术架构: React 19 + TypeScript + Vite 8  
+> 架构模式: Core 核心底座 + Studios 多品类工作室插槽  
+> 渲染技术: Canvas 2D 纯程序化光学着色 (零外部贴图依赖)  
+> 运行环境: 100% 浏览器客户端内存，零网络上云  
 
 ---
 
-## 1. 架构定位与设计原则
-
-Goods-Tools 采用**模块化独立打样工作台 (Studios)** 与 **通用底层渲染管线 (Core Pipeline)** 解耦的架构体系：
+## 1. 架构分层体系
 
 ```text
-goods-tools/
-├── Core Platform (通用底座)
-│   ├── Canvas 2D 程序化光学着色引擎 (闪底、镭射、高光、色散、阴影)
-│   ├── 工业尺寸计算引擎 (300 DPI 物理尺寸、出血位、安全区)
-│   ├── 视口控制系统 (多端自适应比例尺、防误触平移、手势锁定)
-│   └── 本地数据与隐私沙箱 (零上云、内存级对象生命周期管理)
+src/
+├── core/                                # 🌟 通用核心层 (全品类完全复用)
+│   ├── engine/                          # 渲染与光学着色引擎
+│   │   ├── lighting.ts                  # 物理光照向量、漫反射、高光与 360° 环形轨迹
+│   │   ├── shaders/                     # 工艺着色器
+│   │   │   ├── glitter.ts               # 确定性闪粉微粒场 (细银闪、银葱、拉丝、白沙、金闪、珠光)
+│   │   │   └── holo.ts                  # 表面光学覆膜 (高透亮膜、哑膜、素面镭射、碎玻璃、十字星芒)
+│   │   └── canvas-utils.ts              # 基础几何路径、画稿映射变换、300DPI PNG 注入与下载
+│   │
+│   ├── geometry/                        # 工业几何换算
+│   │   ├── dpi.ts                       # 300 DPI 毫米与像素双向换算 (mmToPixels, pixelsToMm)
+│   │   └── transform.ts                 # 通用构图变换 (scale, offsetX, offsetY) 与边界覆盖约束
+│   │
+│   ├── components/                      # 公共 UI 组件
+│   │   ├── Topbar.tsx                   # 顶栏 + 全局品类切换导航 (Studio Switcher)
+│   │   ├── StageToolbar.tsx             # 视口比例尺 [ − 100% + 适应 ] + 构图锁定 + 动效播放
+│   │   └── ExportModal.tsx              # 通用 300 DPI 制作原图/效果图导出模态对话框
+│   │
+│   └── types.ts                         # 全局公共类型定义
 │
-└── Studios (品类打样工作室)
-    ├── 🧷 Badge Studio (马口铁徽章打样台) —— 【已就绪】
-    ├── 🎨 Shikishi Studio (金边/烫金色纸打样台) —— 【规划中】
-    ├── 📸 Photocard Studio (拍立得/小卡打样台) —— 【规划中】
-    ├── 🎟️ Ticket Studio (透卡/镭射票打样台) —— 【规划中】
-    └── 🪆 Acrylic Studio (亚克力立牌/挂件打样台) —— 【规划中】
+├── studios/                             # 🧰 各品类独立工作室 (按需加载、状态隔离)
+│   ├── badge/                           # 🧷 马口铁吧唧工作室
+│   │   ├── BadgeRenderer.ts             # 吧唧 5 层物理渲染 (微凸穹顶光照、冲压包边暗影)
+│   │   ├── BadgeInspector.tsx           # 吧唧控制面板 (尺寸选择、圆/方模具、双闪工艺矩阵)
+│   │   └── presets.ts                   # 25~75mm 吧唧预设与包边公差
+│   │
+│   └── photocard/                       # 📸 拍立得/小卡工作室
+│       ├── PhotocardRenderer.ts         # 拍立得双面纸卡渲染 (圆角冲切、相框模板、卡纸厚度、覆膜)
+│       ├── PhotocardInspector.tsx       # 拍立得控制面板 (模板、尺寸、圆角R角、手写签名、双面切换)
+│       └── presets.ts                   # 富士Mini/方形/小卡/宽幅 4 款标准尺寸与出血公差
+│
+├── App.tsx                              # 根应用：全局品类调度路由与 Studio 状态持久化管理
+└── styles.css                           # 模块化 Design Token 与响应式样式体系
 ```
 
 ---
 
-## 2. 状态模型 (Badge Studio)
+## 2. 核心技术实现
 
-```ts
-export type BaseCraft =
-  | 'none'
-  | 'fine-silver'
-  | 'silver-glitter'
-  | 'brushed-silver'
-  | 'sand-glitter'
-  | 'gold-glitter'
-  | 'pearl'
+### 2.1 纯前端 300 DPI 印刷换算与 PNG pHYs 注入
+通过标准公式精确换算物理尺寸与像素尺寸：
+$$\text{Pixels} = \text{round}\left(\frac{\text{mm}}{25.4} \times 300\right)$$
+在导出时解析 PNG 数据块并在 `IHDR` 后注入 `pHYs` 块（`pixelsPerMeter = round(300 / 0.0254) = 11811`），使 Photoshop 等工业设计软件打开即为标准 300 DPI。
 
-export type FilmCraft =
-  | 'none'
-  | 'glossy'
-  | 'matte'
-  | 'rainbow'
-  | 'cracked-ice'
-  | 'cross'
-
-export type BadgeShape = 'round' | 'square'
-
-export type Transform = {
-  scale: number
-  offsetX: number
-  offsetY: number
-}
-
-export type EditorState = {
-  artwork: Artwork | null
-  transform: Transform
-  baseCraft: BaseCraft
-  filmCraft: FilmCraft
-  shape: BadgeShape
-  finishedDiameterMm: number
-  printDiameterMm: number
-  safeDiameterMm: number
-}
-```
-
-- **单向数据流**：单一 `EditorState` 驱动效果图渲染、包边图渲染与 300 DPI 原图导出，杜绝状态不一致；
-- **归一化变换**：`offsetX` 和 `offsetY` 存储相对画框的归一化百分比，缩放 `scale` 存储基于边界覆盖的倍率。
-
----
-
-## 3. 核心光学渲染管线
-
-### 3.1 五层程序化光学合成（成品预览）
-
-```text
-中性棚拍背景 + 接触与弥散双层地面投影
-  ├── 1. 用户原画层 (Mapped Artwork)
-  ├── 2. 闪底层 (Glitter Base: 确定性微粒场 + 局部扫光增益 + 珠光双色偏光)
-  ├── 3. 覆膜层 (Film Craft: 物理波长彩虹色散 / 多面水晶折射 / 十字星芒 / 弧面天光)
-  ├── 4. 穿透星芒层 (Glitter Accents: 穿透覆膜的高亮星芒微粒)
-  └── 5. 3D 实体层 (微凸穹顶环境光 + 冲压金属包边轮廓高光 + 包边卷纸暗影)
-```
-
-- **确定性粒子场**：通过伪随机哈希算法生成固定的微米级晶片位置与朝向，保证无论如何缩放或转动，闪粉颗粒位置绝对稳定；
-- **物理色散光谱**：素面镭射膜基于可见光波长（380nm~750nm）实现连续平滑色散，随光照角流转；
-- **多面水晶晶格**：碎玻璃镭射膜采用程序化多边形晶格，各晶面依据独立入射角法线计算折射色相；
-- **明度与对比度保护**：双闪复合模式下采用非线性色彩混合曲线，在暗部保持黑场深邃，仅在亮部和边缘激发高光。
-
-### 3.2 300 DPI 印刷原图输出管线
-
-```text
-透明画布 (Pixel Size = round(printDiameterMm / 25.4 * 300))
-  -> 完整形状几何裁切 (圆形 / 圆角方形)
-  -> 渲染变换后的用户原画 (无损高保真绘制)
-  -> 注入 PNG pHYs 数据块 (记录 300 DPI 分辨率元数据)
-  -> 触发浏览器端无损下载
-```
-
----
-
-## 4. 质量保障与自动化验证
-
-- **单元测试**：使用 Node.js 原生测试器（`node:test`）对 `geometry.ts` 中的 300 DPI 换算公式、包边公差、安全区计算与图片覆盖约束进行 100% 自动化测试；
-- **类型系统**：严格 TypeScript 模式（`tsc --noEmit`），零类型推断错误；
-- **自动化截图与视觉测试**：内置基于 Playwright 的自动化无头截图工作流，自动验证桌面端、移动端与模态弹窗的视觉表现。
-
----
-
-## 5. 开源与后续规划
-
-- 推进品类扩展：按计划逐步引入金边色纸、拍立得、透卡等模块；
-- 保持纯前端架构：坚持 100% 浏览器端本地渲染，不引入后端存储，保持轻量高效与用户隐私安全。
+### 2.2 拍立得与小卡 300g 实体质感算法
+1. **多层接触软阴影**：基于光源法线偏置与高斯扩散，呈现硬质相纸在桌面的真实立体悬浮；
+2. **相框开口与内嵌阴影**：通过 `rect` 裁切并叠加内边框阴影，精确还原相框内部画稿凹陷；
+3. **圆角冲切 (R0/R3/R5)**：使用二次贝塞尔曲线平滑裁切卡片轮廓；
+4. **手写签名层**：在 Canvas 离屏层动态计算相框底部留白区域几何中心，完成签名文本与日期戳矢量绘制。
