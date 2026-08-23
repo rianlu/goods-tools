@@ -64,5 +64,4 @@ export function computePhotocardFlip(timeMs: number, speed = 0.0012) {
   }
 }
 
-// 兼容别名
-export const computeOrbit = computeBadgeOrbit
+

@@ -53,6 +53,7 @@ export function App() {
   const [message, setMessage] = useState('谷子效果模拟与打样工具箱已就绪。')
   const [isError, setIsError] = useState(false)
   const [exportSpec, setExportSpec] = useState<ExportSpec | null>(null)
+  const [pendingExportSide, setPendingExportSide] = useState<'front' | 'back'>('front')
 
   const demoArtwork = useMemo(() => createDemoArtwork(), [])
 
@@ -137,6 +138,13 @@ export function App() {
 
     return () => cancelAnimationFrame(animationFrame)
   }, [activeStudio, badgeState, photocardState, view, animate, reducedMotion])
+
+  // 状态消息自动消失
+  useEffect(() => {
+    if (!message) return
+    const timer = setTimeout(() => setMessage(''), isError ? 5000 : 3000)
+    return () => clearTimeout(timer)
+  }, [message, isError])
 
   // 通用画稿上传
   async function handleUploadFile(file: File) {
@@ -361,6 +369,7 @@ export function App() {
       exportPixelSize: { width: pixelW, height: pixelH },
       confirmButtonText: `确认导出原图 (${pixelW}×${pixelH}px)`,
     })
+    setPendingExportSide(side)
   }
 
   function handleConfirmExport() {
@@ -370,7 +379,7 @@ export function App() {
       downloadCanvas(exportCanvas, filename, 300)
       setMessage(`已导出 300 DPI 制作原图「${filename}」`)
     } else {
-      const side = photocardState.activeSide
+      const side = pendingExportSide
       const exportCanvas = createPhotocardPrintExport(photocardState, side)
       const filename = `小卡制作原图-${photocardState.preset.id}-${side}-300DPI.png`
       downloadCanvas(exportCanvas, filename, 300)
@@ -557,6 +566,12 @@ export function App() {
           }
         }
       />
+      {/* 5. 状态提示消息 */}
+      {message && (
+        <div className={`status-message${isError ? ' is-error' : ''}`}>
+          {message}
+        </div>
+      )}
     </div>
   )
 }

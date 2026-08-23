@@ -1587,11 +1587,11 @@ button:disabled {
     height: 28px;
   }
 
-  .size-options {
+  .badge-size-container {
     gap: 4px;
   }
 
-  .size-options button {
+  .badge-size-btn {
     min-height: 34px;
     font-size: 11px;
     padding: 0 2px;

@@ -1,5 +1,4 @@
 import { drawMappedArtwork } from '../../core/engine/canvas-utils.ts'
-import { computeLighting } from '../../core/engine/lighting.ts'
 import { mmToPixels } from '../../core/geometry/dpi.ts'
 import type { BaseCraft, FilmCraft, ViewMode } from '../../core/types.ts'
 import { previewDiameterRatio, type BadgeShape } from './presets.ts'
@@ -269,9 +268,9 @@ function drawGlitterBase(
   context.clip()
   context.translate(centerX, centerY)
 
-  // Base metallic grain layer with screen blending
-  context.globalCompositeOperation = 'screen'
-  context.globalAlpha = craft === 'sand-glitter' ? 0.75 : 0.82
+  // Base metallic grain layer — brushed-silver uses overlay to preserve contrast
+  context.globalCompositeOperation = craft === 'brushed-silver' ? 'overlay' : 'screen'
+  context.globalAlpha = craft === 'sand-glitter' ? 0.75 : craft === 'brushed-silver' ? 0.8 : 0.82
   context.drawImage(
     layer.baseCanvas,
     -layerSize / 2 + shiftX,
@@ -348,7 +347,13 @@ function drawGlitterAccents(
     const starX = star.x + shiftX
     const starY = star.y + shiftY
 
-    if (Math.hypot(starX, starY) > (faceSize / 2) * 0.95) continue
+    // 根据形状裁切边界：圆形用半径，方形用矩形边界
+    const limit = (faceSize / 2) * 0.95
+    if (shape === 'round') {
+      if (Math.hypot(starX, starY) > limit) continue
+    } else {
+      if (Math.abs(starX) > limit || Math.abs(starY) > limit) continue
+    }
 
     const lightDist = Math.hypot(
       starX - tiltX * faceSize * 0.35,
@@ -1046,7 +1051,6 @@ export function drawBadgeFace(
     state.baseCraft === 'fine-silver' ||
     state.baseCraft === 'silver-glitter' ||
     state.baseCraft === 'gold-glitter' ||
-    state.baseCraft === 'brushed-silver' ||
     state.baseCraft === 'sand-glitter'
   ) {
     const isHolo =
@@ -1255,11 +1259,20 @@ export function createBadgePrintExport(state: BadgeState): HTMLCanvasElement {
   canvas.height = size
   const context = getContext(canvas)
 
+  // 修正画稿 Transform 比例：预览中 offset 基于成品面径 (faceSize)，
+  // 导出基于总印刷直径 (printDiameter)。需按比例缩放 offset 使排版一致。
+  const ratio = state.finishedDiameterMm / state.printDiameterMm
+  const exportTransform = {
+    ...state.transform,
+    offsetX: state.transform.offsetX * ratio,
+    offsetY: state.transform.offsetY * ratio,
+  }
+
   context.clearRect(0, 0, size, size)
   context.save()
   shapePath(context, state.shape, size / 2, size / 2, size)
   context.clip()
-  drawMappedArtwork(context, state.artwork, state.transform, size / 2, size / 2, size, size)
+  drawMappedArtwork(context, state.artwork, exportTransform, size / 2, size / 2, size, size)
   context.restore()
   return canvas
 }

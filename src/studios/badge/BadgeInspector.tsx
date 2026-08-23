@@ -3,7 +3,6 @@ import {
   FileOutput,
   Image as ImageIcon,
   RotateCcw,
-  Sparkles,
   Trash2,
   UploadCloud,
 } from 'lucide-react'

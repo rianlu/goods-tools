@@ -33,7 +33,7 @@ export type FilmCraft =
   | 'cracked-ice'
   | 'cross'
 
-export type Craft = BaseCraft | FilmCraft
+
 
 export type ExportSpec = {
   title: string

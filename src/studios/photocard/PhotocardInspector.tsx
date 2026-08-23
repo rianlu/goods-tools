@@ -3,7 +3,6 @@ import {
   FileOutput,
   Image as ImageIcon,
   RotateCcw,
-  Sparkles,
   Trash2,
   UploadCloud,
 } from 'lucide-react'
@@ -21,6 +20,7 @@ const BASE_CRAFTS: Array<{ id: BaseCraft; label: string }> = [
   { id: 'none', label: '300g 标准相纸' },
   { id: 'pearl', label: '珠光贝母卡纸' },
   { id: 'fine-silver', label: '细银闪卡纸' },
+  { id: 'silver-glitter', label: '银葱闪卡纸' },
   { id: 'sand-glitter', label: '幻彩白沙相纸' },
   { id: 'brushed-silver', label: '拉丝银卡' },
   { id: 'gold-glitter', label: '细金闪卡纸' },
@@ -400,7 +400,7 @@ export function PhotocardInspector({
         </section>
       )}
 
-      {/* 4. 小卡专属材质与覆膜 (6 纸张底材 + 8 光学覆膜) */}
+      {/* 4. 小卡专属材质与覆膜 (7 纸张底材 + 6 光学覆膜) */}
       <section className="panel-section">
         <div className="section-heading">
           <div>
@@ -440,7 +440,7 @@ export function PhotocardInspector({
         </div>
 
         <div className="craft-hint">
-          💡 <strong>小卡工艺推荐</strong>：珠光贝母卡纸 + 高透相纸亮膜（还原真实洗印）或 💖 爱心镭射 / ✨ 满天星镭射膜。
+          💡 <strong>小卡工艺推荐</strong>：珠光贝母卡纸 + 高透相纸亮膜（还原真实洗印），或碎玻璃 / 十字星芒镭射膜打造闪耀效果。
         </div>
       </section>
 

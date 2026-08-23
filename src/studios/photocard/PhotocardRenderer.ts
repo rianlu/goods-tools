@@ -625,6 +625,16 @@ export function createPhotocardPrintExport(
   }
 
   const isFullBleed = targetState.frameType === 'full-bleed' || side === 'back'
+
+  if (!isFullBleed) {
+    // 非全出血卡片：先用卡纸底色填满整个含出血的 Canvas，
+    // 确保四周 bleedMm 出血区有底色延伸，避免印刷裁切公差产生白边
+    const isDark = targetState.frameType === 'polaroid-black'
+    context.fillStyle = isDark ? '#18191c' : '#fafbfc'
+    context.fillRect(0, 0, pixelW, pixelH)
+  }
+
+  // 全出血：画稿铺满整个含出血 Canvas；非全出血：在中央绘制裁切尺寸卡面
   const targetW = isFullBleed ? pixelW : mmToPixels(preset.widthMm)
   const targetH = isFullBleed ? pixelH : mmToPixels(preset.heightMm)
 

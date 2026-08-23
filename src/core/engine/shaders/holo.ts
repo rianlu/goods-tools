@@ -1,7 +1,7 @@
 import type { FilmCraft } from '../../types.ts'
 
 /**
- * 绘制光学覆膜层 (素面彩虹色散、碎玻璃晶格折射、十字星芒、爱心镭射、满天星、亮膜、哑膜)
+ * 绘制光学覆膜层 (素面彩虹色散、碎玻璃晶格折射、十字星芒)
  */
 export function drawHoloFilm(
   ctx: CanvasRenderingContext2D,

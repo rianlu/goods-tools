@@ -1,16 +1,5 @@
 import type { BaseCraft } from '../../types.ts'
 
-export type Particle = {
-  x: number
-  y: number
-  size: number
-  angle: number
-  facetCount: number
-  hueOffset: number
-  brightness: number
-  specularPhase: number
-  shapeType?: 'round' | 'hex'
-}
 
 const glitterLayers = new Map<string, HTMLCanvasElement>()
 

@@ -30,8 +30,12 @@ export function constrainTransform(
     imageAspect > targetAspect ? imageAspect / targetAspect : targetAspect / imageAspect
 
   const coverScale = baseScale * scale
-  const maxOffsetX = Math.max(0, (coverScale - 1) / 2)
-  const maxOffsetY = Math.max(0, (coverScale - 1) / 2)
+  const maxOffsetX = imageAspect >= targetAspect
+    ? Math.max(0, (coverScale - 1) / 2)
+    : Math.max(0, (scale - 1) / 2)
+  const maxOffsetY = imageAspect >= targetAspect
+    ? Math.max(0, (scale - 1) / 2)
+    : Math.max(0, (coverScale - 1) / 2)
 
   return {
     scale,
