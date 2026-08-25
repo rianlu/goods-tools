@@ -142,9 +142,11 @@ export function drawCardSurface(
       centerX + cardWidth / 2,
       centerY + cardHeight / 2,
     )
-    pearlGrad.addColorStop(0, '#fcf9fb')
-    pearlGrad.addColorStop(0.5, '#f5fafb')
-    pearlGrad.addColorStop(1, '#f9f6f7')
+    // 珠光贝母纸：具有可见的双色温渐变底色
+    pearlGrad.addColorStop(0, '#f8eef5')
+    pearlGrad.addColorStop(0.3, '#edf6fb')
+    pearlGrad.addColorStop(0.65, '#faf6ec')
+    pearlGrad.addColorStop(1, '#f3eef9')
     context.fillStyle = pearlGrad
   } else {
     context.fillStyle = '#fafbfc'
@@ -209,13 +211,12 @@ export function drawCardSurface(
     )
   }
 
-  // 4. 闪底层 (仅在预览且开启工艺时叠加)
   if (includeCrafts && baseCraft !== 'none') {
     const glitterCanvas = getGlitterLayer(Math.round(winW), Math.round(winH), baseCraft)
     context.save()
     if (baseCraft === 'pearl') {
       context.globalCompositeOperation = 'overlay'
-      context.globalAlpha = 0.65
+      context.globalAlpha = 0.85
     } else if (baseCraft === 'brushed-silver') {
       context.globalCompositeOperation = 'overlay'
       context.globalAlpha = 0.8

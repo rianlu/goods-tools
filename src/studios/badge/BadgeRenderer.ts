@@ -415,19 +415,21 @@ function drawPearlBase(
   const angle = -0.45 + tiltX * 0.3 + tiltY * 0.15
   context.rotate(angle)
 
+  // Layer 1: 主体珠光双色渐变 (提升 alpha，让珠光底可见)
   const pearlGrad = context.createLinearGradient(-faceSize * 0.6, 0, faceSize * 0.6, 0)
-  pearlGrad.addColorStop(0, 'rgba(255, 225, 240, 0.22)')
-  pearlGrad.addColorStop(0.35, 'rgba(220, 245, 255, 0.25)')
-  pearlGrad.addColorStop(0.7, 'rgba(255, 248, 220, 0.22)')
-  pearlGrad.addColorStop(1, 'rgba(235, 225, 255, 0.25)')
+  pearlGrad.addColorStop(0, 'rgba(255, 210, 240, 0.52)')
+  pearlGrad.addColorStop(0.3, 'rgba(210, 242, 255, 0.58)')
+  pearlGrad.addColorStop(0.65, 'rgba(255, 248, 200, 0.52)')
+  pearlGrad.addColorStop(1, 'rgba(225, 210, 255, 0.55)')
 
   context.globalCompositeOperation = 'overlay'
   context.fillStyle = pearlGrad
   context.fillRect(-faceSize * 1.5, -faceSize * 1.5, faceSize * 3, faceSize * 3)
 
+  // Layer 2: 流光光泽扫描带
   const sweepCenter = (tiltX * 0.7 + tiltY * 0.3) * faceSize * 0.35
-  const sweepHalf = faceSize * 0.32
-  const peak = phase == null ? 0.16 : 0.14 + 0.12 * Math.hypot(tiltX, tiltY)
+  const sweepHalf = faceSize * 0.38
+  const peak = phase == null ? 0.32 : 0.26 + 0.18 * Math.hypot(tiltX, tiltY)
   const sheenGrad = context.createLinearGradient(
     sweepCenter - sweepHalf,
     0,
@@ -435,7 +437,7 @@ function drawPearlBase(
     0,
   )
   sheenGrad.addColorStop(0, 'rgba(255, 255, 255, 0)')
-  sheenGrad.addColorStop(0.5, `rgba(255, 252, 248, ${peak})`)
+  sheenGrad.addColorStop(0.5, `rgba(255, 250, 245, ${peak})`)
   sheenGrad.addColorStop(1, 'rgba(255, 255, 255, 0)')
 
   context.globalCompositeOperation = 'screen'
@@ -762,10 +764,10 @@ function drawCrackedIceHolo(
     context.lineTo(shard.points[2].x, shard.points[2].y)
     context.closePath()
 
-    context.fillStyle = `hsla(${hue}, 85%, 62%, ${0.25 + 0.5 * intensity * (0.4 + 0.6 * tiltMagnitude)})`
+    context.fillStyle = `hsla(${hue}, 85%, 62%, ${0.12 + 0.28 * intensity * (0.3 + 0.7 * tiltMagnitude)})`
     context.fill()
 
-    context.strokeStyle = `hsla(${hue}, 90%, 85%, ${0.45 + 0.55 * intensity})`
+    context.strokeStyle = `hsla(${hue}, 90%, 85%, ${0.25 + 0.35 * intensity})`
     context.lineWidth = 1.0
     context.stroke()
   }
@@ -1117,21 +1119,21 @@ export function drawPreviewScene(
   // Neutral studio background
   drawNeutralStudioBackground(context, size)
 
-  // ♾️ 3D 物理运动与多轴偏转矩阵 (随运动轨迹实时响应)
-  const tiltAngle = tiltX * 0.075 - tiltY * 0.035
-  const tiltOffsetX = tiltX * faceSize * 0.075
-  const tiltOffsetY = tiltY * faceSize * 0.055
-  const perspectiveScaleX = 1 - Math.abs(tiltY) * 0.04
-  const perspectiveScaleY = 1 - Math.abs(tiltX) * 0.04
+  // ♾️ 3D 物理运动：吧唧是刚性实体，只做旋转和位移，不做透视拉伸
+  // perspectiveScale 会让圆形吧唧在运动中产生椭圆形变，视觉效果不真实
+  const tiltAngle = tiltX * 0.06 - tiltY * 0.03
+  const tiltOffsetX = tiltX * faceSize * 0.065
+  const tiltOffsetY = tiltY * faceSize * 0.045
 
-  // Layer 1: Ambient Diffuse Drop Shadow (大范围漫反射软阴影，随高度与倾斜反向拉伸)
+  // Layer 1: Ambient Diffuse Drop Shadow (大范围漫反射软阴影，随倾斜拉伸)
   context.save()
-  context.translate(center + tiltOffsetX * 1.3, center + tiltOffsetY + faceSize * 0.045)
-  context.rotate(tiltAngle * 0.7)
-  context.scale(perspectiveScaleX, perspectiveScaleY)
+  context.translate(center + tiltOffsetX * 1.2, center + tiltOffsetY + faceSize * 0.04)
+  context.rotate(tiltAngle * 0.6)
+  // 仅阴影允许轻微拉伸，模拟光源变化，不应用于吧唧本体
+  context.scale(1 - Math.abs(tiltY) * 0.02, 1 + Math.abs(tiltX) * 0.015)
   context.shadowColor = 'rgba(18, 22, 32, 0.22)'
-  context.shadowBlur = faceSize * (0.11 + Math.hypot(tiltX, tiltY) * 0.06)
-  context.shadowOffsetY = faceSize * (0.05 + Math.hypot(tiltX, tiltY) * 0.03)
+  context.shadowBlur = faceSize * (0.10 + Math.hypot(tiltX, tiltY) * 0.05)
+  context.shadowOffsetY = faceSize * (0.04 + Math.hypot(tiltX, tiltY) * 0.025)
   shapePath(context, state.shape, 0, 0, faceSize)
   context.fillStyle = 'rgba(0, 0, 0, 0.01)'
   context.fill()
@@ -1141,20 +1143,18 @@ export function drawPreviewScene(
   context.save()
   context.translate(center + tiltOffsetX, center + tiltOffsetY)
   context.rotate(tiltAngle)
-  context.scale(perspectiveScaleX, perspectiveScaleY)
-  context.shadowColor = 'rgba(18, 22, 32, 0.32)'
-  context.shadowBlur = faceSize * 0.035
-  context.shadowOffsetY = faceSize * 0.02
+  context.shadowColor = 'rgba(18, 22, 32, 0.30)'
+  context.shadowBlur = faceSize * 0.03
+  context.shadowOffsetY = faceSize * 0.018
   shapePath(context, state.shape, 0, 0, faceSize)
   context.fillStyle = '#000000'
   context.fill()
   context.restore()
 
-  // Badge Face & Physical Layers (带 3D 透视形变的吧唧本体)
+  // Badge Face & Physical Layers (吧唧本体，刚性无形变)
   context.save()
   context.translate(center + tiltOffsetX, center + tiltOffsetY)
   context.rotate(tiltAngle)
-  context.scale(perspectiveScaleX, perspectiveScaleY)
   drawBadgeFace(context, state, 0, 0, faceSize, tiltX, tiltY, phase)
   context.restore()
 }
@@ -1248,7 +1248,7 @@ export function createBadgePreviewExport(state: BadgeState): HTMLCanvasElement {
   const canvas = document.createElement('canvas')
   canvas.width = PREVIEW_EXPORT_SIZE
   canvas.height = PREVIEW_EXPORT_SIZE
-  drawPreviewScene(getContext(canvas), PREVIEW_EXPORT_SIZE, state, 0.15, 0.1, 0.8)
+  drawPreviewScene(getContext(canvas), PREVIEW_EXPORT_SIZE, state, 0.15, 0.1, null)
   return canvas
 }
 

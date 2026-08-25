@@ -121,11 +121,11 @@ export function App() {
         }
         animationFrame = requestAnimationFrame(draw)
       } else {
-        // 静置视角
+        // 静置视角 — phase=null 表示无光照偏转（中立静态）
         if (activeStudio === 'badge') {
-          renderBadgeWorkspace(canvas, badgeState, view, 0.15, 0.1, 0.8)
+          renderBadgeWorkspace(canvas, badgeState, view, 0.15, 0.1, null)
         } else {
-          renderPhotocardWorkspace(canvas, photocardState, view, 0.15, 0.1, 0.8)
+          renderPhotocardWorkspace(canvas, photocardState, view, 0.15, 0.1, null)
         }
       }
     }

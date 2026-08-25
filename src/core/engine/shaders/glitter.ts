@@ -31,10 +31,10 @@ export function getGlitterLayer(
   if (craft === 'pearl') {
     // 珠光贝母卡纸：双色温虹彩柔光渐变
     const pearlGrad = ctx.createLinearGradient(0, 0, width, height)
-    pearlGrad.addColorStop(0, 'rgba(255, 230, 245, 0.4)')
-    pearlGrad.addColorStop(0.35, 'rgba(220, 245, 255, 0.45)')
-    pearlGrad.addColorStop(0.7, 'rgba(255, 248, 220, 0.4)')
-    pearlGrad.addColorStop(1, 'rgba(235, 225, 255, 0.45)')
+    pearlGrad.addColorStop(0, 'rgba(255, 220, 245, 0.72)')
+    pearlGrad.addColorStop(0.35, 'rgba(210, 242, 255, 0.78)')
+    pearlGrad.addColorStop(0.7, 'rgba(255, 248, 210, 0.72)')
+    pearlGrad.addColorStop(1, 'rgba(230, 218, 255, 0.75)')
     ctx.fillStyle = pearlGrad
     ctx.fillRect(0, 0, width, height)
     glitterLayers.set(key, canvas)
